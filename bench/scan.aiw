@@ -1,0 +1,128 @@
+# scan -- the scan of search with the vectors read in three ways, to
+# measure the choice of a read-only mapping again.
+#
+#   scan SNAPSHOT QUERY HOW
+#
+# HOW is "m", the whole file mapped private and read-only, as the engine
+# reads it; "p", the same with MAP_POPULATE, which has the kernel read
+# the file before mmap returns; or "r", no mapping: the header by
+# pread64 and then 256 vectors at a time into one buffer. The scoring and
+# the selection are those of the engine (fdot4, src/lib/topk.aiw), for
+# the ten best. Nothing of the snapshot is validated and no metadata is
+# read, so this is not search: it prints the ordinal and the bits of the
+# score of each result, and on stderr the lines of bench/hook.aiw, which
+# bench/run.aiw reads.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "aildb:src/lib/fmt.aiw"
+use "aildb:src/lib/norm.aiw"
+use "aildb:src/lib/topk.aiw"
+use "bench/hook.aiw"
+
+const pread 17
+buf qb 24
+buf head 128
+buf st 144
+buf sel 24
+buf out 24
+
+call hookmark 1
+call argc as c
+if c!=4
+	call eprint "usage: scan SNAPSHOT QUERY m|p|r\n"
+	sys exit_group 2
+end
+call argv 3 as p n
+loadb p as how
+call argv 1 as p n
+call fileopen p n 0 0 as fd
+ifslt fd 0
+	call die "scan: cannot open the snapshot\n"
+end
+h=head
+if how!=114
+	sys fstat fd st
+	load st+48 as size
+	flags=2
+	if how==112
+		flags=0x8002
+	end
+	sys mmap 0 size 1 flags fd 0 as h
+	if h>0xfffffffffffff000
+		call die "scan: cannot map the snapshot\n"
+	end
+else
+	sys pread fd head 128 0 as r
+	if r!=128
+		call die "scan: cannot read the header\n"
+	end
+end
+load h+24 as count
+load h+32 as dim
+load h+64 as voff
+call argv 2 as p n
+call fileread p n qb as r
+if r!=dim*4
+	call die "scan: the query is not of the dimension of the snapshot\n"
+end
+alloc dim*8 as q
+load qb as p
+call normwide p q dim as r
+call topkinit sel 10 as ok
+if (r!=0)|(ok==0)|(q==0)
+	call die "scan: a query that cannot be used, or no memory\n"
+end
+call hookmark 2
+step=dim*4
+i=0
+if how!=114
+	v=h+voff
+	while i<count
+		fdot4 0 v q dim as s
+		call topkadd sel s i
+		v+=step
+		i+=1
+	end
+else
+	alloc step*256 as b
+	ifz b
+		call die "scan: out of memory\n"
+	end
+	while i<count
+		k=count-i
+		if k>256
+			k=256
+		end
+		sys pread fd b k*step voff+i*step as r
+		if r!=k*step
+			call die "scan: cannot read the vectors\n"
+		end
+		v=b
+		j=0
+		while j<k
+			fdot4 0 v q dim as s
+			call topkadd sel s i+j
+			v+=step
+			j+=1
+		end
+		i+=k
+	end
+end
+call topksort sel
+call hookmark 3
+i=0
+label next
+call topkget sel i as s o ok
+if ok
+	call byaddn out o
+	call byaddb out 32
+	call fmthex out s
+	call byaddb out 10
+	i+=1
+	jmp next
+end
+load out as p
+load out+8 as n
+call print p n
+call hookmark 4

@@ -1,0 +1,102 @@
+# gen -- the inputs of the measurements.
+#
+#   gen RECORDS DIMENSION VECTORS METADATA QUERY
+#
+# VECTORS gets RECORDS vectors of DIMENSION elements and QUERY one more,
+# as raw binary32, and METADATA a line for each vector, all as "aildb
+# build" and "aildb search" read them. An element is a number from -1 up
+# to 1, the same chance for each; the numbers come from a generator with
+# a fixed start (xorshift64*), so the files are the same bytes on every
+# run. The vectors are not of the norm 1, which build sees to. A record
+# is forty lines of a file of fifty records: src/f0.aiw 1 to 40, 41 to
+# 80 and so on.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "aildb:src/lib/text.aiw"
+
+buf out 24
+var seed
+
+# the next element as a binary32 in the low 32 bits
+fn element
+	x=seed
+	x^=x>>12
+	x^=x<<25
+	x^=x>>27
+	seed=x
+	x*=0x2545f4914f6cdd1d
+	# 53 bits as a number from -2^52 up to 2^52, over 2^52
+	itof (x>>11)-0x10000000000000 as a
+	itof 0x10000000000000 as b
+	fdiv a b as a
+	f8to4 a as r
+	ret r
+end
+
+# write n elements to the file at p pn
+fn vectors p pn n
+	call fileopen p pn 0x241 420 as fd
+	ifslt fd 0
+		call die "gen: cannot write the vectors\n"
+	end
+	alloc 65536 as b
+	while n
+		k=n
+		if k>16384
+			k=16384
+		end
+		i=0
+		while i<k
+			call element as e
+			store4 b+i*4 e
+			i+=1
+		end
+		call fdwrite fd b k*4 as ok
+		ifz ok
+			call die "gen: cannot write the vectors\n"
+		end
+		n-=k
+	end
+	sys close fd
+end
+
+call argc as c
+if c!=6
+	call eprint "usage: gen RECORDS DIMENSION VECTORS METADATA QUERY\n"
+	sys exit_group 2
+end
+call argv 1 as p n
+call textnum p n as count ok
+call argv 2 as p n
+call textnum p n as dim ok2
+if (ok==0)|(ok2==0)|(dim-1>65535)|(count>100000000)
+	call eprint "gen: RECORDS and DIMENSION are numbers, the second from 1 to 65536\n"
+	sys exit_group 2
+end
+seed=0x9e3779b97f4a7c15
+call argv 3 as p n
+call vectors p n count*dim
+call argv 5 as p n
+call vectors p n dim
+i=0
+while i<count
+	call byadd out "src/f"
+	call byaddn out i/50
+	call byadd out ".aiw\t"
+	call byaddn out i%50*40+1
+	call byaddb out 9
+	call byaddn out i%50*40+40
+	call byadd out "\tail\n" as ok
+	ifz ok
+		call die "gen: out of memory\n"
+	end
+	i+=1
+end
+call argv 4 as p n
+load out as q
+load out+8 as m
+call filewrite p n q m as r
+ifslt r 0
+	call die "gen: cannot write the metadata\n"
+end

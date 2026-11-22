@@ -1,0 +1,8 @@
+# The source of build/aildb here: the commands of aildb at the version
+# of Ailfile.lock, with the hooks it is shipped with, which do nothing.
+# It is what "ail build" makes in a checkout of aildb at that revision,
+# compiled by the AIL of this repository, and the engine that is
+# measured.
+use "lib/std/io.aiw"
+use "aildb:src/hook.aiw"
+use "aildb:src/main.aiw"

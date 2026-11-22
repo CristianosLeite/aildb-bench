@@ -1,0 +1,67 @@
+# bench/stat.aiw -- what the measurements say of the numbers of their
+# rounds: the median, the 95th percentile, and nanoseconds written as
+# milliseconds. The numbers are unsigned 64-bit values at an address. A
+# program that uses it uses lib/std/bytes.aiw first.
+#
+# Every name of this file starts with "stat"; a program has no var of
+# such a name.
+
+# put the statn values at statp in order, the smallest first
+fn statsort statp statn
+	stati=1
+	while stati<statn
+		load statp+stati*8 as statx
+		statj=stati
+		label down
+		if statj
+			load statp+statj*8-8 as staty
+			if staty>statx
+				store statp+statj*8 staty
+				statj-=1
+				jmp down
+			end
+		end
+		store statp+statj*8 statx
+		stati+=1
+	end
+end
+
+# the median of the statn values at statp, which are in order: the one
+# in the middle, or of the two in the middle their mean, rounded down; 0
+# of no values
+fn statmedian statp statn
+	ifz statn
+		ret 0
+	end
+	load statp+(statn/2)*8 as statx
+	if statn&1
+		ret statx
+	end
+	load statp+(statn/2)*8-8 as staty
+	ret staty+(statx-staty)/2
+end
+
+# the 95th percentile of the statn values at statp, which are in order,
+# by the nearest rank: the smallest value that at least 95 of 100 values
+# are not above, which is the largest of fewer than 20; 0 of no values
+fn statp95 statp statn
+	ifz statn
+		ret 0
+	end
+	load statp+((statn*95+99)/100)*8-8 as statx
+	ret statx
+end
+
+# add statv nanoseconds to the buffer statb as milliseconds with three
+# digits after the point, rounded to the nearest, a half up: 1 if they
+# were added, 0 if memory ran out
+fn statms statb statv
+	statv=(statv+500)/1000
+	call byaddn statb statv/1000 as stata
+	call byaddb statb 46
+	statv%=1000
+	call byaddb statb statv/100+48
+	call byaddb statb statv/10%10+48
+	call byaddb statb statv%10+48 as statc
+	ret stata&statc
+end

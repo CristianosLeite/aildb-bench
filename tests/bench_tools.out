@@ -1,0 +1,90 @@
+# gen: 3 records of 4 dimensions
+$ bench-gen 3 4 v.bin m.tsv q.bin
+--- stdout
+--- stderr
+--- status 0
+src/f0.aiw	1	40	ail
+src/f0.aiw	41	80	ail
+src/f0.aiw	81	120	ail
+the elements of the vectors and of the query, as bits:
+ 3211065496 3199004366 1050744781 3164896542
+ 1040631479 1047475832 1059769473 3192233994
+ 1031462010 1059449590 3212815127 1056052797
+ 3207748988 1062732804 3210313574 3199024656
+$ bench-gen 3
+--- stdout
+--- stderr
+usage: gen RECORDS DIMENSION VECTORS METADATA QUERY
+--- status 2
+$ bench-gen 3 0 v.bin m.tsv q.bin
+--- stdout
+--- stderr
+gen: RECORDS and DIMENSION are numbers, the second from 1 to 65536
+--- status 2
+
+# 500 records of 64 dimensions, searched by the three executables
+aildb-times: status 0, stdout as that of aildb: 1
+@ entry  a time not before the last: 1
+@ opened  a time not before the last: 1
+@ searched  a time not before the last: 1
+@ printed  a time not before the last: 1
+= VmHWM  a number above 0: 1
+= RssAnon  a number above 0: 1
+= RssFile  a number above 0: 1
+bench-scan gives the ordinals and bits of search, mapped, populated, read: 1 1 1
+$ bench-scan s.idx q.bin
+--- stdout
+--- stderr
+usage: scan SNAPSHOT QUERY m|p|r
+--- status 2
+
+# the harness: the names of its lines, warm and cold
+status 0
+command
+rounds
+milliseconds
+wall
+  to entry
+  to opened
+  to searched
+  to printed
+  to the end
+cpu
+kibibytes
+peak resident
+VmHWM
+RssAnon
+RssFile
+status 0
+command
+rounds
+milliseconds
+wall
+cpu
+kibibytes
+peak resident
+$ bench-run 3 - -
+--- stdout
+--- stderr
+usage: run ROUNDS CPU COLD CMD [ARG...]
+--- status 2
+$ bench-run 0 - - /bin/true
+--- stdout
+--- stderr
+usage: run ROUNDS CPU COLD CMD [ARG...]
+--- status 2
+$ bench-run 2 x - /bin/true
+--- stdout
+--- stderr
+usage: run ROUNDS CPU COLD CMD [ARG...]
+--- status 2
+$ bench-run 2 - - /bin/false
+--- stdout
+--- stderr
+run: the command did not end with status 0
+--- status 1
+$ bench-run 2 - none /bin/true
+--- stdout
+--- stderr
+run: cannot open none
+--- status 1

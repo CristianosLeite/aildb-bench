@@ -1,0 +1,14 @@
+# aildb-bench: the measurements of aildb (README.md). The engine is the
+# package aildb at the version below, whose revision Ailfile.lock has.
+name aildb-bench
+version 0.1.0
+ail 0.1.0
+
+# the engine as it is shipped, and with hooks that say its times
+bin aildb src/aildb.aiw
+bin aildb-times src/times.aiw
+# the harness, the generator of the inputs, and the scan read in three ways
+bin bench-run bench/run.aiw
+bin bench-gen bench/gen.aiw
+bin bench-scan bench/scan.aiw
+dep aildb 0.1.0 https://github.com/CristianosLeite/aildb.git

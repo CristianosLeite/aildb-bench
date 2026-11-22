@@ -1,0 +1,217 @@
+# the programs of the measurements (bench/, docs/performance.md): the
+# generator writes the same inputs on every run; the engine with the
+# hooks of bench/hook.aiw prints what the shipped one prints and says its
+# four moments in order; the scan gives the results of search however it
+# reads the vectors; and the harness reports each part by its name. No
+# time is printed here, since none is the same twice.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "lib/std/proc.aiw"
+use "aildb:src/lib/text.aiw"
+use "aildb:tests/lib/cmd.aiw"
+buf so 24
+buf se 24
+buf keep 24
+buf line 24
+buf b 24
+
+# run the command line p n: its status, with so and se what it wrote
+fn run p n
+	call cmdargs p n as av
+	call cmdrun av -1 so se as st
+	ret st
+end
+
+call print "# gen: 3 records of 4 dimensions\n"
+call cmdshow "bench-gen 3 4 v.bin m.tsv q.bin"
+call fileread "m.tsv" b
+load b as p
+load b+8 as n
+call print p n
+call bycut b 0
+call fileread "v.bin" b
+call fileread "q.bin" b
+load b as p
+load b+8 as n
+call print "the elements of the vectors and of the query, as bits:"
+i=0
+while i<n
+	if i%16==0
+		call print "\n"
+	end
+	load4 p+i as x
+	call print " "
+	call putn x
+	i+=4
+end
+call print "\n"
+call cmdshow "bench-gen 3"
+call cmdshow "bench-gen 3 0 v.bin m.tsv q.bin"
+
+call print "\n# 500 records of 64 dimensions, searched by the three executables\n"
+call run "bench-gen 500 64 v.bin m.tsv q.bin" as st
+call run "aildb build -o s.idx -v v.bin -m m.tsv -d 64 -i random" as st
+call run "aildb search s.idx -k 10 -q q.bin" as st
+load so as p
+load so+8 as n
+call byadd keep p n
+call run "aildb-times search s.idx -k 10 -q q.bin" as st
+load so as p
+load so+8 as n
+load keep as q
+load keep+8 as m
+call texteq p n q m as same
+call print "aildb-times: status "
+call putn st
+call print ", stdout as that of aildb: "
+call putn same
+call print "\n"
+# its lines on stderr: the names, and whether no time is before the one
+# of the line above
+load se as p
+load se+8 as n
+prev=0
+while n
+	call textline p n as l ok
+	call textfind p+2 l-2 32 as nl ok2
+	call textnum p+3+nl l-3-nl as v ok3
+	call print p nl+2
+	loadb p as c
+	if c==64
+		call print "  a time not before the last: "
+		call putn v>=prev
+		prev=v
+	else
+		call print "  a number above 0: "
+		call putn (v>0)&ok3
+	end
+	call print "\n"
+	p+=l+ok
+	n-=l+ok
+end
+# the scan: the ordinals and the bits of search, read from its lines
+call bycut line 0
+load keep as p
+load keep+8 as n
+first=1
+while n
+	call textline p n as l ok
+	ifz first
+		# "id" is not printed by search; the ordinal is the place of
+		# the path and the lines: record i is lines i%50*40+1 of file i/50
+		i=0
+		while i+7<l
+			call textprefix p+i l-i "\"path\":\"src/f" as hit
+			if hit
+				call textfind p+i+13 l-i-13 46 as d ok2
+				call textnum p+i+13 d as file ok2
+				j=i+13+d
+				call textfind p+j l-j 58 as d ok2
+				j+=d+1
+				call textfind p+j l-j 44 as d ok2
+				call textnum p+j d as start ok2
+				call byaddn line file*50+(start-1)/40
+				i=l
+			end
+			i+=1
+		end
+		i=0
+		while i+15<l
+			call textprefix p+i l-i "\"score_bits\":\"" as hit
+			if hit
+				call byaddb line 32
+				call byadd line p+i+14 16
+				call byaddb line 10
+				i=l
+			end
+			i+=1
+		end
+	end
+	first=0
+	p+=l+ok
+	n-=l+ok
+end
+load line as q
+load line+8 as m
+call run "bench-scan s.idx q.bin m" as st
+load so as p
+load so+8 as n
+call texteq p n q m as a
+call run "bench-scan s.idx q.bin p" as st
+load so as p
+load so+8 as n
+call texteq p n q m as b2
+call run "bench-scan s.idx q.bin r" as st
+load so as p
+load so+8 as n
+call texteq p n q m as c
+call print "bench-scan gives the ordinals and bits of search, mapped, populated, read: "
+call putn a
+call print " "
+call putn b2
+call print " "
+call putn c
+call print "\n"
+call cmdshow "bench-scan s.idx q.bin"
+
+call print "\n# the harness: the names of its lines, warm and cold\n"
+# what stands before the first two spaces of each line, or before a colon
+fn names
+	load so as p
+	load so+8 as n
+	while n
+		call textline p n as l ok
+		i=0
+		while i+1<l
+			load2 p+i as x
+			loadb p+i as c
+			if c==58
+				l2=i
+				jmp cut
+			end
+			if (x==0x2020)&(i>0)
+				loadb p+i-1 as c
+				if c!=32
+					l2=i
+					jmp cut
+				end
+			end
+			i+=1
+		end
+		l2=l
+		label cut
+		call print p l2
+		call print "\n"
+		p+=l+ok
+		n-=l+ok
+	end
+end
+# the programs by their paths: the harness looks for no name in build/
+call bycut b 0
+call byadd b "bench-run 3 - - "
+call byadd b cmdhome cmdhomen
+call byadd b "/build/aildb-times search s.idx -k 10 -q q.bin"
+load b as p
+load b+8 as n
+call run p n as st
+call print "status "
+call putn st
+call print "\n"
+call names
+call bycut b 0
+call byadd b "bench-run 2 - s.idx "
+call byadd b cmdhome cmdhomen
+call byadd b "/build/aildb search s.idx -k 10 -q q.bin"
+load b as p
+load b+8 as n
+call run p n as st
+call print "status "
+call putn st
+call print "\n"
+call names
+call cmdshow "bench-run 3 - -"
+call cmdshow "bench-run 0 - - /bin/true"
+call cmdshow "bench-run 2 x - /bin/true"
+call cmdshow "bench-run 2 - - /bin/false"
+call cmdshow "bench-run 2 - none /bin/true"

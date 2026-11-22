@@ -1,0 +1,132 @@
+# bench/hook.aiw -- the hooks of the executable of the measurements,
+# build/aildb-times, in the place of src/hook.aiw: build is as the
+# shipped executable has it, and search notes the time at each of its
+# four moments and says them on stderr when its results are written.
+#
+# A line is "@ ", a name and the time of the clock that only goes forward
+# (CLOCK_MONOTONIC), in nanoseconds, which another process can compare
+# with its own:
+#
+#   @ entry N       the program has started
+#   @ opened N      the snapshot is open and validated, the query read
+#   @ searched N    every record is scored and the best are in order
+#   @ printed N     the results are written
+#
+# After them come lines "= ", a name and a number of kibibytes, taken
+# from /proc/self/status at that last moment: VmHWM, the most memory the
+# process had resident, and RssAnon and RssFile, what of the resident
+# memory is its own and what is pages of files, a mapped snapshot among
+# them. bench/run.aiw reads these lines.
+#
+# Every name of this file starts with "hook".
+
+const hookfsync 74
+buf hooktimes 40
+buf hookline 64
+data hookstatus "/proc/self/status" 0
+
+fn hookstop hookn
+end
+
+fn hooksync hookfd hookn
+	sys hookfsync hookfd as hookr
+	ret hookr
+end
+
+# write the hookn bytes at hookp, a space, the number hookv in decimal
+# and a line feed to stderr, after the two bytes hooka and a space
+fn hooksay hooka hookp hookn hookv
+	storeb hookline hooka
+	storeb hookline+1 32
+	hooki=0
+	while hooki<hookn
+		loadb hookp+hooki as hookc
+		storeb hookline+2+hooki hookc
+		hooki+=1
+	end
+	storeb hookline+2+hookn 32
+	# the digits, from the last
+	hooke=hookline+63
+	storeb hooke 10
+	hookq=hooke
+	label digit
+	hookq-=1
+	storeb hookq hookv%10+48
+	hookv/=10
+	jnz hookv digit
+	hookd=hookline+3+hookn
+	while hookq<=hooke
+		loadb hookq as hookc
+		storeb hookd hookc
+		hookd+=1
+		hookq+=1
+	end
+	sys write 2 hookline hookd-hookline
+end
+
+# say the number after the hookn bytes at hookp, the name of a line with
+# its colon, among the hookm bytes of /proc/self/status at hookb
+fn hookfield hookb hookm hookp hookn
+	hooki=0
+	while hooki+hookn<hookm
+		hookj=0
+		while hookj<hookn
+			loadb hookb+hooki+hookj as hookx
+			loadb hookp+hookj as hooky
+			jne hookx hooky next
+			hookj+=1
+		end
+		hooki+=hookn
+		hookv=0
+		label more
+		loadb hookb+hooki as hookx
+		hooki+=1
+		if (hookx==32)|(hookx==9)
+			jmp more
+		end
+		hookx-=48
+		if hookx<10
+			hookv=hookv*10+hookx
+			jmp more
+		end
+		call hooksay 61 hookp hookn-1 hookv
+		ret 0
+		label next
+		# on to the start of the next line
+		label skip
+		loadb hookb+hooki as hookx
+		hooki+=1
+		if (hookx!=10)&(hooki<hookm)
+			jmp skip
+		end
+	end
+end
+
+fn hookmark hookn
+	local hookt 16
+	local hookb 4096
+	sys clock_gettime 1 hookt
+	load hookt as hooks
+	load hookt+8 as hookx
+	store hooktimes+hookn*8 hooks*1000000000+hookx
+	if hookn==4
+		load hooktimes+8 as hookx
+		call hooksay 64 "entry" hookx
+		load hooktimes+16 as hookx
+		call hooksay 64 "opened" hookx
+		load hooktimes+24 as hookx
+		call hooksay 64 "searched" hookx
+		load hooktimes+32 as hookx
+		call hooksay 64 "printed" hookx
+		sys open hookstatus 0 0 as hookfd
+		ifsge hookfd 0
+			sys read hookfd hookb 4096 as hookr
+			sys close hookfd
+			ifsgt hookr 0
+				call hookfield hookb hookr "VmHWM:"
+				call hookfield hookb hookr "RssAnon:"
+				call hookfield hookb hookr "RssFile:"
+			end
+		end
+	end
+end

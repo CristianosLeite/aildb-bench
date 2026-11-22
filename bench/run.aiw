@@ -1,0 +1,440 @@
+# run -- start a command several times and say how long it took.
+#
+#   run ROUNDS CPU COLD CMD [ARG...]
+#
+# CMD is started ROUNDS times, one after the other, with /dev/null as its
+# stdin and stdout. CPU is the number of the processor the children are
+# bound to, or "-" for no binding. COLD is "-", or the path of a file or
+# of a directory: before each round every file there is put out of the
+# file cache, and the pages of it that the kernel still has in memory are
+# counted. Without COLD two rounds come first that are not counted.
+#
+# What is measured of a round, and printed as the median and the 95th
+# percentile of the rounds (bench/stat.aiw), in milliseconds:
+#
+#   wall     from before the child is made until it is known to be gone
+#   to NAME  the parts of the wall time, by the lines "@ NAME N" that the
+#            child wrote to stderr (bench/hook.aiw): from the line before
+#            it, or from the start, to that moment; "to the end" is the
+#            rest
+#   cpu      the processor time of the child, user and system, of all
+#            its threads
+#
+# and in kibibytes, as the median and the largest: "peak resident", the
+# most memory the child had resident as the kernel reports it when it is
+# gone (ru_maxrss), and each line "= NAME N" of the child. docs/
+# performance.md says what the numbers mean. The status is 0, 2 for wrong
+# usage and 1 for a child that did not end with status 0, a path that
+# cannot be read or no memory.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "lib/std/proc.aiw"
+use "aildb:src/lib/text.aiw"
+use "bench/stat.aiw"
+
+const memfd 319
+const lseek 8
+const fsync 74
+const fadvise 221
+const mincore 27
+const maxnames 12
+data errname "stderr" 0
+
+buf paths 24    # COLD and what is found below it, a NUL after each
+buf files 24    # of those the files that have bytes
+buf names 24
+buf path 24
+buf said 24     # what a child wrote to stderr
+buf line 24
+buf av 2048
+buf tname 384   # the names of the "@" lines, 32 bytes each
+buf vname 384   # and of the "=" lines
+buf tcol 96     # the address of the values of each, a value a round
+buf vcol 96
+buf ru 144
+var tcount
+var vcount
+var rounds
+var nfiles
+var nbytes
+
+fn usage
+	call eprint "usage: run ROUNDS CPU COLD CMD [ARG...]\n"
+	sys exit_group 2
+end
+
+fn fail p n q m
+	call eprint "run: "
+	call eprint p n
+	call eprint q m
+	call eprint "\n"
+	sys exit_group 1
+end
+
+# memory for a value of each round
+fn column
+	alloc rounds*8 as p
+	ifz p
+		call fail "out of memory" ""
+	end
+	ret p
+end
+
+# find the files at and below COLD, the n bytes at p
+fn walk p n
+	local st 144
+	call byadd paths p n
+	call byaddb paths 0
+	o=0
+	label next
+	load paths as q
+	load paths+8 as m
+	if o<m
+		call strlen q+o as l
+		call fileopen q+o l 0 0 as fd
+		ifslt fd 0
+			call fail "cannot open " q+o l
+		end
+		sys fstat fd st
+		sys close fd
+		load4 st+24 as mode
+		load st+48 as size
+		if (mode&0xf000)==0x4000
+			call bycut names 0
+			call filenames q+o l names as k
+			ifslt k 0
+				call fail "cannot read the directory " q+o l
+			end
+			# paths may move when it grows, so the directory is added from
+			# a copy
+			call bycut path 0
+			call byadd path q+o l
+			load path as dp
+			load names as np
+			while k
+				call strlen np as nl
+				call byadd paths dp l
+				call byaddb paths 47
+				call byadd paths np nl
+				call byaddb paths 0
+				np+=nl+1
+				k-=1
+			end
+		else
+			if size
+				call byadd files q+o l
+				call byaddb files 0
+				nfiles+=1
+				nbytes+=size
+			end
+		end
+		o+=l+1
+		jmp next
+	end
+end
+
+# put every file of files out of the file cache: the number of its pages
+# that are in memory all the same
+fn evict
+	local st 144
+	left=0
+	load files as p
+	k=nfiles
+	while k
+		call strlen p as l
+		call fileopen p l 0 0 as fd
+		ifslt fd 0
+			call fail "cannot open " p l
+		end
+		# pages that are not written yet cannot be given up
+		sys fsync fd
+		sys fadvise fd 0 0 4 as r
+		if r
+			call fail "the kernel refused to drop the pages of " p l
+		end
+		sys fstat fd st
+		load st+48 as size
+		pages=(size+4095)/4096
+		alloc pages as vec
+		sys mmap 0 size 1 1 fd 0 as m
+		if (vec==0)|(m>0xfffffffffffff000)
+			call fail "cannot map " p l
+		end
+		sys mincore m size vec as r
+		if r
+			call fail "cannot ask which pages are in memory of " p l
+		end
+		i=0
+		while i<pages
+			loadb vec+i as b
+			left+=b&1
+			i+=1
+		end
+		sys munmap m size
+		free vec
+		sys close fd
+		p+=l+1
+		k-=1
+	end
+	ret left
+end
+
+# the column of the name of the n bytes at p among the count names at
+# names, which is added if it is new: its number, or -1 if there are
+# maxnames already
+fn named names cols count p n
+	if n>31
+		n=31
+	end
+	i=0
+	while i<count
+		call strlen names+i*32 as l
+		call texteq names+i*32 l p n as same
+		if same
+			ret i
+		end
+		i+=1
+	end
+	if count>=maxnames
+		ret -1
+	end
+	call bycopy names+count*32 p n
+	storeb names+count*32+n 0
+	call column as c
+	store cols+count*8 c
+	ret count
+end
+
+# one round, number i, or one that is not counted if i is -1: the wall
+# time in nanoseconds, the processor time in nanoseconds and the peak
+# resident memory in kibibytes
+fn round i
+	local st 8
+	sys memfd errname 1 as efd
+	call fileopen "/dev/null" 2 0 as nul
+	ifslt efd|nul 0
+		call fail "cannot open /dev/null or a file in memory" ""
+	end
+	call procnow as t0
+	call procstart av nul nul efd as pid
+	ifslt pid 0
+		call fail "cannot start the command" ""
+	end
+	label again
+	sys wait4 pid st 0 ru as r
+	jeq r -4 again
+	call procnow as t1
+	sys close nul
+	call bycut said 0
+	sys lseek efd 0 0
+	call filereadfd efd said
+	sys close efd
+	load said as p
+	load said+8 as n
+	load4 st as code
+	if code
+		call eprint p n
+		call fail "the command did not end with status 0" ""
+	end
+	prev=t0
+	while n
+		call textline p n as l ok
+		loadb p as kind
+		loadb p+1 as sp
+		if (l>3)&(sp==32)&((kind==64)|(kind==61))
+			call textfind p+2 l-2 32 as nl ok2
+			call textnum p+3+nl l-3-nl as v ok3
+			if ok2&ok3&(i!=-1)
+				if kind==64
+					call named tname tcol tcount p+2 nl as c
+					if c==tcount
+						tcount+=1
+					end
+					ifsge c 0
+						load tcol+c*8 as col
+						store col+i*8 v-prev
+					end
+					prev=v
+				else
+					call named vname vcol vcount p+2 nl as c
+					if c==vcount
+						vcount+=1
+					end
+					ifsge c 0
+						load vcol+c*8 as col
+						store col+i*8 v
+					end
+				end
+			end
+		end
+		p+=l+ok
+		n-=l+ok
+	end
+	# two times of seconds and microseconds, then the peak in kibibytes
+	load ru as a
+	load ru+8 as b
+	load ru+16 as c
+	load ru+24 as d
+	load ru+32 as rss
+	ret t1-t0 t1-prev ((a+c)*1000000+b+d)*1000 rss
+end
+
+# print the n bytes at p and spaces up to the column w
+fn cell p n w
+	call print p n
+	while n<w
+		call print " "
+		n+=1
+	end
+end
+
+# print a line of the name p n with the median and the 95th percentile
+# of the column col as milliseconds
+fn times p n col
+	call statsort col rounds
+	call cell p n 18
+	call bycut line 0
+	call statmedian col rounds as x
+	call statms line x
+	load line as q
+	load line+8 as m
+	call cell q m 12
+	call bycut line 0
+	call statp95 col rounds as x
+	call statms line x
+	load line as q
+	load line+8 as m
+	call print q m
+	call print "\n"
+end
+
+# the same with the median and the largest value as they are
+fn sizes p n col
+	call statsort col rounds
+	call cell p n 18
+	call bycut line 0
+	call statmedian col rounds as x
+	call byaddn line x
+	load line as q
+	load line+8 as m
+	call cell q m 12
+	load col+rounds*8-8 as x
+	call putn x
+	call print "\n"
+end
+
+call argc as c
+if c<5
+	call usage
+end
+call argv 1 as p n
+call textnum p n as rounds ok
+if (ok==0)|(rounds-1>9999)
+	call usage
+end
+call argv 2 as p n
+call textnum p n as cpu ok
+call texteq p n "-" as none
+if (ok==0)&(none==0)
+	call usage
+end
+call argv 3 as cp cn
+call texteq cp cn "-" as warm
+if c>259
+	call usage
+end
+i=4
+while i<c
+	call argv i as p n
+	store av+(i-4)*8 p
+	i+=1
+end
+store av+(c-4)*8 0
+ifz warm
+	call walk cp cn
+end
+ifz none
+	call procpin cpu as r
+	if r!=cpu
+		call fail "cannot bind to that processor" ""
+	end
+end
+call column as wall
+call column as tail
+call column as cput
+call column as peak
+left=0
+if warm
+	call round -1
+	call round -1
+end
+i=0
+while i<rounds
+	ifz warm
+		call evict as l
+		if l>left
+			left=l
+		end
+	end
+	call round i as w e t rss
+	store wall+i*8 w
+	store tail+i*8 e
+	store cput+i*8 t
+	store peak+i*8 rss
+	i+=1
+end
+
+call print "command:"
+i=4
+while i<c
+	call argv i as p n
+	call print " "
+	call print p n
+	i+=1
+end
+call print "\nrounds: "
+call putn rounds
+call print ", processor: "
+call argv 2 as p n
+call print p n
+if warm
+	call print ", file cache: as two rounds before left it\n"
+else
+	call print ", file cache: before each round the "
+	call putn nbytes
+	call print " bytes of "
+	call putn nfiles
+	call print " files at "
+	call print cp cn
+	call print " were put out of it; pages of them still in memory then, at most: "
+	call putn left
+	call print "\n"
+end
+call print "milliseconds      median      95th percentile\n"
+call times "wall" wall
+i=0
+while i<tcount
+	call bycut path 0
+	call byadd path "  to "
+	call strlen tname+i*32 as l
+	call byadd path tname+i*32 l
+	load path as p
+	load path+8 as n
+	load tcol+i*8 as col
+	call times p n col
+	i+=1
+end
+if tcount
+	call times "  to the end" tail
+end
+call times "cpu" cput
+call print "kibibytes         median      largest\n"
+call sizes "peak resident" peak
+i=0
+while i<vcount
+	call strlen vname+i*32 as l
+	load vcol+i*8 as col
+	call sizes vname+i*32 l col
+	i+=1
+end

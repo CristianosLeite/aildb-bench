@@ -1,0 +1,6 @@
+# The source of build/aildb-times: the same commands as build/aildb,
+# with the hooks of bench/hook.aiw, which say on stderr when each part
+# of a search was done and how much memory the process had.
+use "lib/std/io.aiw"
+use "bench/hook.aiw"
+use "aildb:src/main.aiw"

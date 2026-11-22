@@ -1,0 +1,20 @@
+1 values 1 to n: first 1, last 1, median 1, p95 1
+2 values 1 to n: first 1, last 2, median 1, p95 2
+15 values 1 to n: first 1, last 15, median 8, p95 15
+20 values 1 to n: first 1, last 20, median 10, p95 19
+21 values 1 to n: first 1, last 21, median 11, p95 20
+31 values 1 to n: first 1, last 31, median 16, p95 30
+100 values 1 to n: first 1, last 100, median 50, p95 95
+101 values 1 to n: first 1, last 101, median 51, p95 96
+200 values 1 to n: first 1, last 200, median 100, p95 190
+no values: 0 0
+2 5 5 8: median 5; 1 4: median 2; the two largest but one: median is the odd one between: 1
+0 ns = 0.000 ms
+499 ns = 0.000 ms
+500 ns = 0.001 ms
+1499 ns = 0.001 ms
+1500 ns = 0.002 ms
+999499 ns = 0.999 ms
+999500 ns = 1.000 ms
+4546000 ns = 4.546 ms
+187803000123 ns = 187803.000 ms

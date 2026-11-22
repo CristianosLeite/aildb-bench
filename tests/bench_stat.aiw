@@ -1,0 +1,91 @@
+# bench/stat.aiw: order, the median, the 95th percentile by the nearest
+# rank and nanoseconds as milliseconds, which the figures of
+# docs/performance.md are made with.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "bench/stat.aiw"
+buf v 1600
+buf b 24
+# the n values k*7919%n+1 for k below n: the numbers 1 to n in another
+# order when n is not a multiple of 7919
+fn fill n
+	i=0
+	while i<n
+		store v+i*8 i*7919%n+1
+		i+=1
+	end
+end
+fn show n
+	call fill n
+	call statsort v n
+	call putn n
+	call print " values 1 to n: first "
+	load v as x
+	call putn x
+	call print ", last "
+	load v+n*8-8 as x
+	call putn x
+	call print ", median "
+	call statmedian v n as x
+	call putn x
+	call print ", p95 "
+	call statp95 v n as x
+	call putn x
+	call print "\n"
+end
+fn ms x
+	call bycut b 0
+	call statms b x
+	call putn x
+	call print " ns = "
+	load b as p
+	load b+8 as n
+	call print p n
+	call print " ms\n"
+end
+call show 1
+call show 2
+call show 15
+call show 20
+call show 21
+call show 31
+call show 100
+call show 101
+call show 200
+call statmedian v 0 as x
+call statp95 v 0 as y
+call print "no values: "
+call putn x
+call print " "
+call putn y
+call print "\n"
+# values that are equal, and two in the middle that differ by an odd number
+store v 5
+store v+8 5
+store v+16 2
+store v+24 8
+call statsort v 4
+call statmedian v 4 as x
+call print "2 5 5 8: median "
+call putn x
+store v 1
+store v+8 4
+call statmedian v 2 as x
+call print "; 1 4: median "
+call putn x
+store v 0xfffffffffffffffe
+store v+8 0xfffffffffffffffc
+call statsort v 2
+call statmedian v 2 as x
+call print "; the two largest but one: median is the odd one between: "
+call putn x==0xfffffffffffffffd
+call print "\n"
+call ms 0
+call ms 499
+call ms 500
+call ms 1499
+call ms 1500
+call ms 999499
+call ms 999500
+call ms 4546000
+call ms 187803000123
