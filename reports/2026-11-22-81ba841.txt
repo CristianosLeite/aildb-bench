@@ -1,0 +1,1672 @@
+# The measurements of aildb, 2026-11-22
+aildb-bench: 81ba841
+aildb: 467b91bcb6e9070d67b400c00ddbd67366a79ff4 (version 0.1.0), the revision of Ailfile.lock
+AIL: ail 0.1.0, revision 9b94a9b, the command that built the programs
+LanceDB: lancedb 0.41.0, pyarrow 26.0.1, Python 3.12.13
+machine: 12th Gen Intel(R) Core(TM) i7-12700H, 20 processors, 63016 MiB, Linux 7.0.0-44-generic
+files: ext4 on /dev/nvme0n1p3
+
+## 10000 records of 768 dimensions
+{"records":10000,"dimension":768,"model":"random","source_revision":null}
+10000 rows of 768 dimensions, lancedb 0.41.0
+the snapshot: 30990336 bytes
+the table of LanceDB: 30771690 bytes in 4 files
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 5.2e-07
+the three ways of bench-scan: the same results
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              4.439       4.560
+cpu               4.410       4.526
+kibibytes         median      largest
+peak resident     30252       30252
+
+### aildb with the times of its parts, warm
+$ build/bench-run 101 2 - build/aildb-times search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+command: build/aildb-times search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              4.493       4.688
+  to entry        0.104       0.144
+  to opened       0.256       0.286
+  to searched     3.996       4.113
+  to printed      0.014       0.018
+  to the end      0.120       0.163
+cpu               4.462       4.644
+kibibytes         median      largest
+peak resident     30256       30256
+VmHWM             30364       30368
+RssAnon           52          56
+RssFile           30312       30312
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              17.899      18.797
+cpu               6.883       7.335
+kibibytes         median      largest
+peak resident     30252       30252
+
+### aildb with the times of its parts, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/aildb-times search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+command: build/aildb-times search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              17.982      19.321
+  to entry        0.134       0.236
+  to opened       0.738       0.796
+  to searched     16.914      18.253
+  to printed      0.016       0.030
+  to the end      0.145       0.227
+cpu               6.880       8.241
+kibibytes         median      largest
+peak resident     30256       30256
+VmHWM             30364       30368
+RssAnon           52          56
+RssFile           30312       30312
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              671.398     681.139
+  to entry        8.436       9.152
+  to imported     560.186     565.252
+  to opened       1.465       1.564
+  to searched     29.814      31.152
+  to printed      0.117       0.152
+  to the end      71.865      80.653
+cpu               670.102     679.830
+kibibytes         median      largest
+peak resident     229120      229308
+VmHWM             229120      229308
+RssAnon           76460       76528
+RssFile           120420      120548
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 15, processor: 2, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              691.221     696.842
+  to entry        8.494       9.118
+  to imported     558.946     568.994
+  to opened       12.376      12.673
+  to searched     40.855      43.692
+  to printed      0.117       0.152
+  to the end      70.433      81.056
+cpu               673.653     681.889
+kibibytes         median      largest
+peak resident     229092      229256
+VmHWM             229092      229256
+RssAnon           76524       76592
+RssFile           120384      120572
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              756.197     776.579
+  to entry        12.457      12.663
+  to imported     634.288     653.880
+  to opened       3.629       4.406
+  to searched     31.830      34.882
+  to printed      0.119       0.175
+  to the end      74.507      81.991
+cpu               2385.747    2403.992
+kibibytes         median      largest
+peak resident     246336      247980
+VmHWM             246336      247980
+RssAnon           101464      101616
+RssFile           120272      120436
+
+### LanceDB on every processor, cold
+$ build/bench-run 15 - build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 15, processor: -, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              780.102     802.343
+  to entry        11.144      12.513
+  to imported     635.985     656.060
+  to opened       14.724      16.046
+  to searched     44.324      48.776
+  to printed      0.122       0.169
+  to the end      72.944      81.728
+cpu               2389.251    2420.866
+kibibytes         median      largest
+peak resident     246500      248256
+VmHWM             246500      248256
+RssAnon           101468      101540
+RssFile           120300      120428
+
+### bench-scan m, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s10000.idx build/bench/q10000.bin m
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin m
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              4.360       4.494
+  to entry        0.102       0.138
+  to opened       0.017       0.019
+  to searched     4.112       4.228
+  to printed      0.005       0.007
+  to the end      0.123       0.154
+cpu               4.326       4.452
+kibibytes         median      largest
+peak resident     30088       30088
+VmHWM             30124       30128
+RssAnon           36          40
+RssFile           30088       30088
+
+### bench-scan m, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/bench-scan build/bench/s10000.idx build/bench/q10000.bin m
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin m
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              18.625      19.002
+  to entry        0.127       0.165
+  to opened       0.174       0.190
+  to searched     18.164      18.564
+  to printed      0.006       0.008
+  to the end      0.142       0.172
+cpu               6.599       7.029
+kibibytes         median      largest
+peak resident     30032       30032
+VmHWM             30124       30128
+RssAnon           36          40
+RssFile           30088       30088
+
+### bench-scan p, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s10000.idx build/bench/q10000.bin p
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin p
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              4.453       4.542
+  to entry        0.097       0.128
+  to opened       0.388       0.424
+  to searched     3.816       3.898
+  to printed      0.006       0.007
+  to the end      0.128       0.163
+cpu               4.421       4.511
+kibibytes         median      largest
+peak resident     30224       30224
+VmHWM             30316       30320
+RssAnon           36          40
+RssFile           30280       30280
+
+### bench-scan p, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/bench-scan build/bench/s10000.idx build/bench/q10000.bin p
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin p
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              26.338      27.746
+  to entry        0.084       0.143
+  to opened       22.522      23.791
+  to searched     3.656       3.956
+  to printed      0.004       0.006
+  to the end      0.118       0.170
+cpu               6.587       7.239
+kibibytes         median      largest
+peak resident     30280       30280
+VmHWM             30316       30320
+RssAnon           36          40
+RssFile           30280       30280
+
+### bench-scan r, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s10000.idx build/bench/q10000.bin r
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin r
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              5.616       6.121
+  to entry        0.089       0.130
+  to opened       0.013       0.015
+  to searched     5.437       5.924
+  to printed      0.005       0.006
+  to the end      0.060       0.083
+cpu               5.583       6.092
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+### bench-scan r, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/bench-scan build/bench/s10000.idx build/bench/q10000.bin r
+command: build/bench-scan build/bench/s10000.idx build/bench/q10000.bin r
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              19.239      19.990
+  to entry        0.106       0.199
+  to opened       0.107       0.124
+  to searched     18.951      19.703
+  to printed      0.005       0.008
+  to the end      0.073       0.102
+cpu               8.362       9.537
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+## 10000 records, the filter -p src/f12
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 5.1e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -p src/f12
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -p src/f12
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              0.571       0.616
+cpu               0.554       0.597
+kibibytes         median      largest
+peak resident     2156        2156
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -p src/f12
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -p src/f12
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2.533       3.304
+cpu               0.867       0.968
+kibibytes         median      largest
+peak resident     2028        2028
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              672.114     679.240
+  to entry        8.386       8.725
+  to imported     560.552     563.837
+  to opened       1.461       1.500
+  to searched     29.960      30.526
+  to printed      0.116       0.155
+  to the end      71.807      74.915
+cpu               670.835     677.977
+kibibytes         median      largest
+peak resident     233452      233552
+VmHWM             233452      233552
+RssAnon           76612       76724
+RssFile           123380      123464
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+rounds: 15, processor: 2, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              699.315     706.694
+  to entry        8.645       17.257
+  to imported     562.841     570.023
+  to opened       12.374      12.583
+  to searched     41.497      43.032
+  to printed      0.115       0.123
+  to the end      71.240      85.723
+cpu               679.547     685.049
+kibibytes         median      largest
+peak resident     233392      233568
+VmHWM             233392      233568
+RssAnon           76628       76652
+RssFile           123276      123456
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 src/f12 -
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              761.144     776.876
+  to entry        12.447      12.757
+  to imported     638.914     656.019
+  to opened       3.416       4.213
+  to searched     31.354      34.123
+  to printed      0.123       0.170
+  to the end      73.641      81.703
+cpu               2379.445    2409.458
+kibibytes         median      largest
+peak resident     251556      252536
+VmHWM             251556      252536
+RssAnon           102468      103576
+RssFile           125288      125576
+
+## 10000 records, the filter  -l markdown
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 5.2e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -l markdown
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -l markdown
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              2.232       2.343
+cpu               2.211       2.312
+kibibytes         median      largest
+peak resident     28720       28720
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s10000.idx build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -l markdown
+command: build/aildb search build/bench/s10000.idx -k 10 -q build/bench/q10000.bin -l markdown
+rounds: 31, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              24.217      27.283
+cpu               9.630       10.629
+kibibytes         median      largest
+peak resident     28248       28248
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              672.782     687.636
+  to entry        8.364       8.528
+  to imported     555.466     564.155
+  to opened       1.449       1.725
+  to searched     33.993      35.059
+  to printed      0.122       0.145
+  to the end      71.999      83.047
+cpu               671.460     683.220
+kibibytes         median      largest
+peak resident     232684      232836
+VmHWM             232684      232836
+RssAnon           88648       88764
+RssFile           122920      123028
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+rounds: 15, processor: 2, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              692.866     697.386
+  to entry        8.528       8.695
+  to imported     555.733     558.991
+  to opened       12.499      12.647
+  to searched     44.722      47.193
+  to printed      0.118       0.124
+  to the end      70.925      75.972
+cpu               675.825     679.268
+kibibytes         median      largest
+peak resident     232628      232816
+VmHWM             232628      232816
+RssAnon           88664       88680
+RssFile           122808      122960
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10 - markdown
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              756.839     783.229
+  to entry        10.960      12.573
+  to imported     636.179     658.718
+  to opened       3.721       4.487
+  to searched     32.780      36.440
+  to printed      0.122       0.170
+  to the end      73.851      83.070
+cpu               2372.609    2413.638
+kibibytes         median      largest
+peak resident     251512      252192
+VmHWM             251512      252192
+RssAnon           106640      107364
+RssFile           124220      124372
+
+## 10000 records, a process that stays, 21 searches
+bench-stay and aildb search: the same results
+
+### aildb, one process, warm
+$ taskset -c 2 build/bench-stay build/bench/s10000.idx build/bench/q10000.bin 10 21
+@ entry 72782387557362
+@ opened 72782387820972
+@ first 72782392663208
+@ last 72782470561612
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          3.828       4.322
+
+### aildb, rounds of such a process, warm
+$ build/bench-run 7 2 - build/bench-stay build/bench/s10000.idx build/bench/q10000.bin 10 21
+command: build/bench-stay build/bench/s10000.idx build/bench/q10000.bin 10 21
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              83.071      85.412
+  to entry        0.165       0.212
+  to opened       0.271       0.291
+  to first        4.769       5.089
+  to last         76.832      79.332
+  to the end      0.990       1.108
+cpu               82.938      85.280
+kibibytes         median      largest
+peak resident     30172       30172
+
+### aildb, rounds of such a process, cold
+$ build/bench-run 7 2 build/bench/s10000.idx build/bench-stay build/bench/s10000.idx build/bench/q10000.bin 10 21
+command: build/bench-stay build/bench/s10000.idx build/bench/q10000.bin 10 21
+rounds: 7, processor: 2, file cache: before each round the 30990336 bytes of 1 files at build/bench/s10000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              92.887      93.988
+  to entry        0.176       0.267
+  to opened       0.642       0.677
+  to first        16.908      17.182
+  to last         75.362      76.076
+  to the end      0.184       0.213
+cpu               82.510      82.906
+kibibytes         median      largest
+peak resident     30292       30292
+
+### LanceDB on one processor, one process, warm
+$ env LANCE_STAY=21 taskset -c 2 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+@ entry 72783903213001
+@ imported 72784464581751
+@ opened 72784466042318
+@ first 72784496360902
+@ last 72784738435008
+= VmHWM 275324
+= RssAnon 154812
+= RssFile 120512
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          11.121       14.813
+
+### LanceDB on one processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              944.078     967.305
+  to entry        8.830       8.959
+  to imported     579.569     583.491
+  to opened       1.480       1.531
+  to first        30.241      30.451
+  to last         245.613     265.964
+  to the end      78.125      82.028
+cpu               942.628     963.074
+kibibytes         median      largest
+peak resident     292972      321980
+VmHWM             290380      320384
+RssAnon           169860      199896
+RssFile           120396      120572
+
+### LanceDB on one processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 2 build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 7, processor: 2, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              958.158     966.464
+  to entry        8.482       8.665
+  to imported     560.092     569.734
+  to opened       12.516      12.643
+  to first        40.328      42.392
+  to last         250.702     262.274
+  to the end      75.190      95.305
+cpu               933.343     941.650
+kibibytes         median      largest
+peak resident     292076      326228
+VmHWM             290500      326240
+RssAnon           170016      205772
+RssFile           120484      120508
+
+### LanceDB on every processor, one process, warm
+$ env LANCE_STAY=21 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+@ entry 72800074223391
+@ imported 72800732106607
+@ opened 72800735859011
+@ first 72800766477679
+@ last 72801158445377
+= VmHWM 743924
+= RssAnon 623596
+= RssFile 120328
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          20.305       26.173
+
+### LanceDB on every processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 7, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              1150.885    1180.400
+  to entry        9.995       12.308
+  to imported     638.250     652.254
+  to opened       3.781       4.037
+  to first        31.546      33.857
+  to last         383.042     397.002
+  to the end      89.084      92.118
+cpu               3146.972    3194.578
+kibibytes         median      largest
+peak resident     689352      728696
+VmHWM             688524      729788
+RssAnon           568144      609628
+RssFile           120288      120380
+
+### LanceDB on every processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 - build/bench/l10000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l10000 build/bench/q10000.bin 10
+rounds: 7, processor: -, file cache: before each round the 30771690 bytes of 4 files at build/bench/l10000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              1177.699    1196.684
+  to entry        10.413      12.212
+  to imported     634.452     657.477
+  to opened       14.870      15.606
+  to first        44.765      47.115
+  to last         377.408     391.961
+  to the end      87.591      92.745
+cpu               3139.533    3176.080
+kibibytes         median      largest
+peak resident     683448      706732
+VmHWM             685076      706696
+RssAnon           564668      586452
+RssFile           120296      120408
+
+## 100000 records of 768 dimensions
+{"records":100000,"dimension":768,"model":"random","source_revision":null}
+100000 rows of 768 dimensions, lancedb 0.41.0
+the snapshot: 309903360 bytes
+the table of LanceDB: 307723155 bytes in 4 files
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 4.9e-07
+the three ways of bench-scan: the same results
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              43.535      44.531
+cpu               43.456      44.379
+kibibytes         median      largest
+peak resident     302636      302636
+
+### aildb with the times of its parts, warm
+$ build/bench-run 101 2 - build/aildb-times search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+command: build/aildb-times search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              43.662      44.940
+  to entry        0.137       0.171
+  to opened       2.339       2.427
+  to searched     40.313      41.586
+  to printed      0.015       0.020
+  to the end      0.836       0.943
+cpu               43.588      44.899
+kibibytes         median      largest
+peak resident     302640      302640
+VmHWM             302740      302744
+RssAnon           52          56
+RssFile           302688      302688
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              192.207     197.967
+cpu               69.082      71.199
+kibibytes         median      largest
+peak resident     302636      302636
+
+### aildb with the times of its parts, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/aildb-times search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+command: build/aildb-times search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              192.290     198.650
+  to entry        0.161       0.197
+  to opened       2.941       3.450
+  to searched     188.359     194.639
+  to printed      0.020       0.024
+  to the end      0.822       0.876
+cpu               69.037      71.709
+kibibytes         median      largest
+peak resident     302640      302640
+VmHWM             302740      302744
+RssAnon           52          56
+RssFile           302688      302688
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              937.970     951.829
+  to entry        8.377       8.789
+  to imported     556.804     564.042
+  to opened       1.445       1.511
+  to searched     298.587     304.136
+  to printed      0.118       0.137
+  to the end      73.355      85.794
+cpu               936.069     950.224
+kibibytes         median      largest
+peak resident     638524      638648
+VmHWM             638524      638648
+RssAnon           76800       76952
+RssFile           120432      120532
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 15, processor: 2, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              1001.590    1012.716
+  to entry        8.552       8.760
+  to imported     558.905     567.184
+  to opened       12.386      12.522
+  to searched     352.011     357.595
+  to printed      0.114       0.124
+  to the end      71.227      75.813
+cpu               976.241     987.537
+kibibytes         median      largest
+peak resident     638388      638468
+VmHWM             638388      638468
+RssAnon           76756       76876
+RssFile           120308      120552
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              952.076     971.298
+  to entry        11.838      12.597
+  to imported     632.033     647.488
+  to opened       3.631       4.532
+  to searched     226.082     232.701
+  to printed      0.123       0.171
+  to the end      76.976      84.774
+cpu               3031.399    3060.631
+kibibytes         median      largest
+peak resident     654276      668808
+VmHWM             654276      668808
+RssAnon           238092      253176
+RssFile           120288      120408
+
+### LanceDB on every processor, cold
+$ build/bench-run 15 - build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 15, processor: -, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              1087.401    1125.030
+  to entry        10.946      12.402
+  to imported     636.771     670.055
+  to opened       15.000      15.786
+  to searched     347.958     354.765
+  to printed      0.121       0.175
+  to the end      77.621      86.828
+cpu               3057.451    3107.158
+kibibytes         median      largest
+peak resident     657212      669308
+VmHWM             657212      669308
+RssAnon           241056      253440
+RssFile           120272      120344
+
+### bench-scan m, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s100000.idx build/bench/q100000.bin m
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin m
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              42.039      43.131
+  to entry        0.126       0.154
+  to opened       0.019       0.022
+  to searched     41.155      42.157
+  to printed      0.006       0.008
+  to the end      0.739       0.830
+cpu               41.976      43.066
+kibibytes         median      largest
+peak resident     300160      300160
+VmHWM             300196      300200
+RssAnon           36          40
+RssFile           300160      300160
+
+### bench-scan m, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/bench-scan build/bench/s100000.idx build/bench/q100000.bin m
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin m
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              187.800     197.165
+  to entry        0.196       0.239
+  to opened       0.192       0.205
+  to searched     186.493     195.873
+  to printed      0.011       0.015
+  to the end      1.136       1.243
+cpu               85.638      87.691
+kibibytes         median      largest
+peak resident     300048      300048
+VmHWM             300132      300136
+RssAnon           36          40
+RssFile           300096      300096
+
+### bench-scan p, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s100000.idx build/bench/q100000.bin p
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin p
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              42.824      44.138
+  to entry        0.129       0.165
+  to opened       3.685       3.870
+  to searched     38.157      39.214
+  to printed      0.007       0.009
+  to the end      0.824       0.970
+cpu               42.740      44.064
+kibibytes         median      largest
+peak resident     302608      302608
+VmHWM             302692      302696
+RssAnon           36          40
+RssFile           302656      302656
+
+### bench-scan p, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/bench-scan build/bench/s100000.idx build/bench/q100000.bin p
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin p
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              232.727     259.628
+  to entry        0.163       0.198
+  to opened       194.152     222.230
+  to searched     37.186      37.939
+  to printed      0.007       0.011
+  to the end      0.976       1.049
+cpu               67.318      68.583
+kibibytes         median      largest
+peak resident     302656      302656
+VmHWM             302692      302696
+RssAnon           36          40
+RssFile           302656      302656
+
+### bench-scan r, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s100000.idx build/bench/q100000.bin r
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin r
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              56.312      57.946
+  to entry        0.125       0.156
+  to opened       0.015       0.017
+  to searched     56.061      57.700
+  to printed      0.007       0.011
+  to the end      0.086       0.114
+cpu               56.233      57.868
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+### bench-scan r, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/bench-scan build/bench/s100000.idx build/bench/q100000.bin r
+command: build/bench-scan build/bench/s100000.idx build/bench/q100000.bin r
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              186.343     189.937
+  to entry        0.167       0.198
+  to opened       0.116       0.121
+  to searched     185.946     189.522
+  to printed      0.010       0.015
+  to the end      0.110       0.134
+cpu               82.474      84.819
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+## 100000 records, the filter -p src/f12
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 4.3e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -p src/f12
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -p src/f12
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              4.831       6.827
+cpu               4.808       6.769
+kibibytes         median      largest
+peak resident     19756       19756
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -p src/f12
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -p src/f12
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              14.458      15.316
+cpu               6.213       6.690
+kibibytes         median      largest
+peak resident     19500       19500
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              954.178     966.692
+  to entry        8.392       8.872
+  to imported     557.676     567.556
+  to opened       1.437       1.527
+  to searched     310.475     315.217
+  to printed      0.119       0.147
+  to the end      73.356      81.069
+cpu               952.455     964.662
+kibibytes         median      largest
+peak resident     642712      643008
+VmHWM             642712      643008
+RssAnon           90672       90820
+RssFile           123340      123476
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+rounds: 15, processor: 2, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              1018.171    1039.100
+  to entry        8.761       9.168
+  to imported     562.177     567.099
+  to opened       12.379      12.524
+  to searched     362.214     376.296
+  to printed      0.122       0.143
+  to the end      74.405      79.885
+cpu               991.256     1004.566
+kibibytes         median      largest
+peak resident     642700      642784
+VmHWM             642700      642784
+RssAnon           90680       90708
+RssFile           123304      123412
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 src/f12 -
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              950.516     985.142
+  to entry        12.291      12.741
+  to imported     639.375     665.835
+  to opened       3.696       4.632
+  to searched     220.905     229.330
+  to printed      0.123       0.177
+  to the end      76.210      82.465
+cpu               2926.914    2967.728
+kibibytes         median      largest
+peak resident     642884      643392
+VmHWM             642884      643392
+RssAnon           172048      188564
+RssFile           125328      125508
+
+## 100000 records, the filter  -l markdown
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 4.8e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -l markdown
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -l markdown
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              25.778      28.544
+cpu               25.697      28.453
+kibibytes         median      largest
+peak resident     286904      286904
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s100000.idx build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -l markdown
+command: build/aildb search build/bench/s100000.idx -k 10 -q build/bench/q100000.bin -l markdown
+rounds: 31, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              245.772     262.422
+cpu               99.455      103.245
+kibibytes         median      largest
+peak resident     281760      281760
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              981.118     1036.018
+  to entry        8.432       8.896
+  to imported     559.336     605.605
+  to opened       1.456       1.544
+  to searched     337.266     344.765
+  to printed      0.120       0.147
+  to the end      74.535      82.809
+cpu               979.670     1034.775
+kibibytes         median      largest
+peak resident     641968      642140
+VmHWM             641968      642140
+RssAnon           77668       127632
+RssFile           123284      123436
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+rounds: 15, processor: 2, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              1049.985    1060.218
+  to entry        8.675       8.821
+  to imported     563.220     566.228
+  to opened       12.385      12.493
+  to searched     391.917     395.774
+  to printed      0.120       0.141
+  to the end      75.117      85.853
+cpu               1021.250    1027.784
+kibibytes         median      largest
+peak resident     641956      642064
+VmHWM             641956      642064
+RssAnon           126052      128492
+RssFile           123228      123340
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10 - markdown
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              1004.528    1030.399
+  to entry        11.426      12.494
+  to imported     642.342     664.651
+  to opened       3.743       4.564
+  to searched     271.213     277.778
+  to printed      0.123       0.173
+  to the end      78.404      83.042
+cpu               3006.743    3043.302
+kibibytes         median      largest
+peak resident     642260      642692
+VmHWM             642260      642692
+RssAnon           272564      292452
+RssFile           124208      124344
+
+## 100000 records, a process that stays, 21 searches
+bench-stay and aildb search: the same results
+
+### aildb, one process, warm
+$ taskset -c 2 build/bench-stay build/bench/s100000.idx build/bench/q100000.bin 10 21
+@ entry 73147469211837
+@ opened 73147474506047
+@ first 73147524417565
+@ last 73148304495691
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          38.974       39.644
+
+### aildb, rounds of such a process, warm
+$ build/bench-run 7 2 - build/bench-stay build/bench/s100000.idx build/bench/q100000.bin 10 21
+command: build/bench-stay build/bench/s100000.idx build/bench/q100000.bin 10 21
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              847.750     850.877
+  to entry        0.182       0.210
+  to opened       2.267       2.332
+  to first        48.735      50.149
+  to last         788.293     792.063
+  to the end      7.872       8.582
+cpu               847.477     850.363
+kibibytes         median      largest
+peak resident     302620      302620
+
+### aildb, rounds of such a process, cold
+$ build/bench-run 7 2 build/bench/s100000.idx build/bench-stay build/bench/s100000.idx build/bench/q100000.bin 10 21
+command: build/bench-stay build/bench/s100000.idx build/bench/q100000.bin 10 21
+rounds: 7, processor: 2, file cache: before each round the 309903360 bytes of 1 files at build/bench/s100000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              948.909     1058.260
+  to entry        0.161       0.287
+  to opened       3.041       6.701
+  to first        189.530     294.013
+  to last         756.431     767.791
+  to the end      0.970       1.002
+cpu               826.432     836.224
+kibibytes         median      largest
+peak resident     302668      302668
+
+### LanceDB on one processor, one process, warm
+$ env LANCE_STAY=21 taskset -c 2 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+@ entry 73162856132923
+@ imported 73163413889918
+@ opened 73163415386452
+@ first 73163735518453
+@ last 73168841489132
+= VmHWM 950760
+= RssAnon 348544
+= RssFile 120488
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          258.455       265.733
+
+### LanceDB on one processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              5518.553    5857.837
+  to entry        8.349       8.457
+  to imported     556.580     562.838
+  to opened       1.416       1.480
+  to first        307.863     309.477
+  to last         4558.266    4896.924
+  to the end      88.366      98.894
+cpu               5515.865    5855.446
+kibibytes         median      largest
+peak resident     982176      1077128
+VmHWM             982176      1077128
+RssAnon           427416      522216
+RssFile           120452      120532
+
+### LanceDB on one processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 2 build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 7, processor: 2, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              5560.675    5743.271
+  to entry        8.583       9.290
+  to imported     558.449     561.680
+  to opened       12.354      12.396
+  to first        357.362     360.218
+  to last         4533.798    4720.146
+  to the end      86.923      94.043
+cpu               5529.472    5710.286
+kibibytes         median      largest
+peak resident     1020324     1092944
+VmHWM             1020324     1092944
+RssAnon           459008      537976
+RssFile           120468      120648
+
+### LanceDB on every processor, one process, warm
+$ env LANCE_STAY=21 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+@ entry 73259221426068
+@ imported 73259878333460
+@ opened 73259882012000
+@ first 73260106897163
+@ last 73264219920545
+= VmHWM 1476892
+= RssAnon 939400
+= RssFile 120136
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          204.552       211.200
+
+### LanceDB on every processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 7, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              5133.568    5197.081
+  to entry        11.393      12.459
+  to imported     629.391     671.192
+  to opened       3.684       4.748
+  to first        225.175     233.413
+  to last         4160.383    4190.786
+  to the end      100.890     103.754
+cpu               16180.363   16341.688
+kibibytes         median      largest
+peak resident     1416732     1474588
+VmHWM             1416732     1474588
+RssAnon           873768      921568
+RssFile           120272      120380
+
+### LanceDB on every processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 - build/bench/l100000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l100000 build/bench/q100000.bin 10
+rounds: 7, processor: -, file cache: before each round the 307723155 bytes of 4 files at build/bench/l100000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              5300.805    5329.135
+  to entry        10.021      11.031
+  to imported     651.537     665.574
+  to opened       15.091      15.454
+  to first        347.934     355.433
+  to last         4178.785    4195.439
+  to the end      95.970      110.412
+cpu               16395.886   16477.608
+kibibytes         median      largest
+peak resident     1398540     1495148
+VmHWM             1398540     1495148
+RssAnon           854568      945196
+RssFile           120268      120324
+
+## 1000000 records of 768 dimensions
+{"records":1000000,"dimension":768,"model":"random","source_revision":null}
+1000000 rows of 768 dimensions, lancedb 0.41.0
+the snapshot: 3099021312 bytes
+the table of LanceDB: 3077599569 bytes in 4 files
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 5.0e-07
+the three ways of bench-scan: the same results
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              430.147     434.274
+cpu               429.776     433.860
+kibibytes         median      largest
+peak resident     3026412     3026412
+
+### aildb with the times of its parts, warm
+$ build/bench-run 101 2 - build/aildb-times search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+command: build/aildb-times search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              431.901     435.124
+  to entry        0.181       0.213
+  to opened       22.401      23.052
+  to searched     401.042     404.413
+  to printed      0.021       0.025
+  to the end      8.045       8.364
+cpu               431.643     434.836
+kibibytes         median      largest
+peak resident     3026416     3026416
+VmHWM             3026488     3026492
+RssAnon           52          56
+RssFile           3026436     3026436
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2227.195    2244.413
+cpu               719.248     916.777
+kibibytes         median      largest
+peak resident     3026412     3026412
+
+### aildb with the times of its parts, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/aildb-times search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+command: build/aildb-times search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2204.351    2244.148
+  to entry        0.211       0.264
+  to opened       32.911      33.877
+  to searched     2163.354    2210.259
+  to printed      0.025       0.034
+  to the end      9.697       9.877
+cpu               876.443     916.021
+kibibytes         median      largest
+peak resident     3026416     3026416
+VmHWM             3026488     3026492
+RssAnon           52          56
+RssFile           3026436     3026436
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              3494.234    3511.044
+  to entry        8.448       8.578
+  to imported     562.924     567.420
+  to opened       1.451       1.548
+  to searched     2845.116    2862.215
+  to printed      0.117       0.169
+  to the end      73.467      85.861
+cpu               3488.254    3508.890
+kibibytes         median      largest
+peak resident     4689404     4689624
+VmHWM             4689404     4689624
+RssAnon           76940       77088
+RssFile           120416      120532
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 15, processor: 2, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              3876.774    3912.447
+  to entry        8.919       9.129
+  to imported     564.602     572.309
+  to opened       12.419      12.627
+  to searched     3217.298    3257.045
+  to printed      0.117       0.122
+  to the end      71.647      79.861
+cpu               3849.934    3883.557
+kibibytes         median      largest
+peak resident     4689364     4689556
+VmHWM             4689364     4689556
+RssAnon           76988       77072
+RssFile           120352      120516
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              2851.687    2895.669
+  to entry        10.328      12.525
+  to imported     646.141     678.222
+  to opened       3.625       4.601
+  to searched     2104.360    2134.059
+  to printed      0.123       0.182
+  to the end      83.525      89.691
+cpu               9319.875    9426.751
+kibibytes         median      largest
+peak resident     4688644     4689152
+VmHWM             4688644     4689152
+RssAnon           361848      383552
+RssFile           120288      120404
+
+### LanceDB on every processor, cold
+$ build/bench-run 15 - build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 15, processor: -, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              3893.166    3956.530
+  to entry        10.431      12.448
+  to imported     633.546     680.786
+  to opened       15.070      15.978
+  to searched     3148.376    3167.455
+  to printed      0.121       0.174
+  to the end      84.246      97.986
+cpu               9239.549    9366.968
+kibibytes         median      largest
+peak resident     4688408     4688652
+VmHWM             4688408     4688652
+RssAnon           364648      389348
+RssFile           120268      120372
+
+### bench-scan m, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin m
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin m
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              419.250     589.554
+  to entry        0.179       0.222
+  to opened       0.022       0.028
+  to searched     411.733     579.861
+  to printed      0.010       0.014
+  to the end      7.268       9.582
+cpu               419.130     589.485
+kibibytes         median      largest
+peak resident     3000016     3000016
+VmHWM             3000136     3000140
+RssAnon           36          40
+RssFile           3000100     3000100
+
+### bench-scan m, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin m
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin m
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2208.125    2240.867
+  to entry        0.190       0.292
+  to opened       0.223       0.931
+  to searched     2199.421    2229.501
+  to printed      0.010       0.017
+  to the end      8.468       10.808
+cpu               686.410     869.134
+kibibytes         median      largest
+peak resident     3000080     3000080
+VmHWM             3000136     3000140
+RssAnon           36          40
+RssFile           3000100     3000100
+
+### bench-scan p, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin p
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin p
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              428.112     434.425
+  to entry        0.179       0.204
+  to opened       36.362      37.089
+  to searched     383.017     389.449
+  to printed      0.010       0.016
+  to the end      8.430       8.629
+cpu               428.011     434.319
+kibibytes         median      largest
+peak resident     3026384     3026384
+VmHWM             3026440     3026444
+RssAnon           36          40
+RssFile           3026404     3026404
+
+### bench-scan p, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin p
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin p
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2602.143    2699.264
+  to entry        0.189       0.265
+  to opened       2207.939    2253.765
+  to searched     382.769     530.589
+  to printed      0.012       0.017
+  to the end      8.528       10.969
+cpu               688.294     878.929
+kibibytes         median      largest
+peak resident     3026320     3026320
+VmHWM             3026440     3026444
+RssAnon           36          40
+RssFile           3026404     3026404
+
+### bench-scan r, warm
+$ build/bench-run 101 2 - build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin r
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin r
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              568.799     733.764
+  to entry        0.158       0.209
+  to opened       0.017       0.022
+  to searched     568.498     733.410
+  to printed      0.011       0.015
+  to the end      0.125       0.158
+cpu               568.689     733.630
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+### bench-scan r, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin r
+command: build/bench-scan build/bench/s1000000.idx build/bench/q1000000.bin r
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2367.046    2403.767
+  to entry        0.231       0.299
+  to opened       0.144       0.331
+  to searched     2366.468    2403.307
+  to printed      0.012       0.017
+  to the end      0.136       0.156
+cpu               1044.721    1062.545
+kibibytes         median      largest
+peak resident     800         800
+VmHWM             824         828
+RssAnon           808         812
+RssFile           16          16
+
+## 1000000 records, the filter -p src/f12
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 4.8e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -p src/f12
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -p src/f12
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              48.447      66.566
+cpu               48.397      66.514
+kibibytes         median      largest
+peak resident     193644      193644
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -p src/f12
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -p src/f12
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              147.930     151.624
+cpu               65.039      66.769
+kibibytes         median      largest
+peak resident     193388      193388
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              3516.439    3542.183
+  to entry        8.432       8.689
+  to imported     556.468     559.107
+  to opened       1.441       1.539
+  to searched     2878.185    2896.413
+  to printed      0.118       0.155
+  to the end      71.685      75.716
+cpu               3515.458    3540.242
+kibibytes         median      largest
+peak resident     4694308     4694548
+VmHWM             4694308     4694548
+RssAnon           74524       131220
+RssFile           124396      124544
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+rounds: 15, processor: 2, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              3883.767    3894.606
+  to entry        8.767       8.972
+  to imported     558.561     564.161
+  to opened       12.428      12.704
+  to searched     3232.809    3242.809
+  to printed      0.117       0.146
+  to the end      70.037      78.901
+cpu               3854.203    3865.740
+kibibytes         median      largest
+peak resident     4694372     4694424
+VmHWM             4694372     4694424
+RssAnon           74664       75116
+RssFile           124352      124392
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 src/f12 -
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              2820.162    2843.392
+  to entry        9.491       12.317
+  to imported     637.813     658.470
+  to opened       3.586       4.279
+  to searched     2079.478    2097.970
+  to printed      0.120       0.170
+  to the end      86.010      93.215
+cpu               8223.691    8334.319
+kibibytes         median      largest
+peak resident     4694428     4694972
+VmHWM             4694428     4694972
+RssAnon           490480      550116
+RssFile           125276      125440
+
+## 1000000 records, the filter  -l markdown
+aildb and LanceDB: 10 and 10 results, the same records in the same order; largest difference of a score: 5.0e-07
+
+### aildb, warm
+$ build/bench-run 101 2 - build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -l markdown
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -l markdown
+rounds: 101, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              242.725     245.430
+cpu               242.589     245.355
+kibibytes         median      largest
+peak resident     2868956     2868956
+
+### aildb, cold
+$ build/bench-run 31 2 build/bench/s1000000.idx build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -l markdown
+command: build/aildb search build/bench/s1000000.idx -k 10 -q build/bench/q1000000.bin -l markdown
+rounds: 31, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              2467.151    2546.237
+cpu               849.230     903.442
+kibibytes         median      largest
+peak resident     2817984     2817984
+
+### LanceDB on one processor, warm
+$ build/bench-run 31 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+rounds: 31, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              3720.827    3920.656
+  to entry        8.360       8.479
+  to imported     554.872     562.131
+  to opened       1.442       1.526
+  to searched     3081.480    3280.460
+  to printed      0.118       0.319
+  to the end      71.175      79.007
+cpu               3718.768    3918.669
+kibibytes         median      largest
+peak resident     4693260     4693448
+VmHWM             4693260     4693448
+RssAnon           100680      126964
+RssFile           123240      123340
+
+### LanceDB on one processor, cold
+$ build/bench-run 15 2 build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+rounds: 15, processor: 2, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              4360.963    4408.521
+  to entry        8.754       8.952
+  to imported     558.782     562.079
+  to opened       12.396      12.539
+  to searched     3709.878    3754.752
+  to printed      0.115       0.143
+  to the end      71.971      78.965
+cpu               4326.753    4358.571
+kibibytes         median      largest
+peak resident     4693308     4693392
+VmHWM             4693308     4693392
+RssAnon           100596      124780
+RssFile           123240      123308
+
+### LanceDB on every processor, warm
+$ build/bench-run 31 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10 - markdown
+rounds: 31, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              3133.899    3181.074
+  to entry        10.142      12.512
+  to imported     631.300     666.507
+  to opened       3.912       4.498
+  to searched     2385.440    2429.723
+  to printed      0.120       0.171
+  to the end      94.872      102.003
+cpu               8512.239    8639.689
+kibibytes         median      largest
+peak resident     4693460     4694120
+VmHWM             4693460     4694120
+RssAnon           822200      983892
+RssFile           124220      124344
+
+## 1000000 records, a process that stays, 21 searches
+bench-stay and aildb search: the same results
+
+### aildb, one process, warm
+$ taskset -c 2 build/bench-stay build/bench/s1000000.idx build/bench/q1000000.bin 10 21
+@ entry 74999658843528
+@ opened 74999688567518
+@ first 75000343887382
+@ last 75008550247053
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          382.645       556.068
+
+### aildb, rounds of such a process, warm
+$ build/bench-run 7 2 - build/bench-stay build/bench/s1000000.idx build/bench/q1000000.bin 10 21
+command: build/bench-stay build/bench/s1000000.idx build/bench/q1000000.bin 10 21
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              7984.845    8154.486
+  to entry        0.199       0.208
+  to opened       22.816      23.624
+  to first        449.566     452.432
+  to last         7474.491    7640.365
+  to the end      38.101      40.503
+cpu               7983.799    8153.508
+kibibytes         median      largest
+peak resident     3026332     3026332
+
+### aildb, rounds of such a process, cold
+$ build/bench-run 7 2 build/bench/s1000000.idx build/bench-stay build/bench/s1000000.idx build/bench/q1000000.bin 10 21
+command: build/bench-stay build/bench/s1000000.idx build/bench/q1000000.bin 10 21
+rounds: 7, processor: 2, file cache: before each round the 3099021312 bytes of 1 files at build/bench/s1000000.idx were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              9823.699    10153.188
+  to entry        0.177       0.572
+  to opened       26.201      36.833
+  to first        2226.024    2249.676
+  to last         7549.409    7955.180
+  to the end      9.128       9.240
+cpu               8248.352    8816.452
+kibibytes         median      largest
+peak resident     3026332     3026332
+
+### LanceDB on one processor, one process, warm
+$ env LANCE_STAY=21 taskset -c 2 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+@ entry 75150257913200
+@ imported 75150811806033
+@ opened 75150813265709
+@ first 75153675166220
+@ last 75210971047659
+= VmHWM 5456008
+= RssAnon 359852
+= RssFile 120488
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          2863.495       2886.149
+
+### LanceDB on one processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 2 - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 7, processor: 2, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              60924.337   60984.932
+  to entry        8.333       8.441
+  to imported     553.243     555.617
+  to opened       1.442       1.513
+  to first        2857.490    2894.460
+  to last         57418.591   57499.001
+  to the end      82.205      89.881
+cpu               60912.521   60972.685
+kibibytes         median      largest
+peak resident     5455352     5475024
+VmHWM             5455352     5475024
+RssAnon           359488      506236
+RssFile           120436      120552
+
+### LanceDB on one processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 2 build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 7, processor: 2, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              60446.080   61113.594
+  to entry        8.742       8.880
+  to imported     556.893     559.045
+  to opened       12.368      12.477
+  to first        3224.948    3243.421
+  to last         56588.707   57219.429
+  to the end      80.885      87.810
+cpu               60403.536   61060.903
+kibibytes         median      largest
+peak resident     5393600     5540104
+VmHWM             5393600     5540104
+RssAnon           277704      505940
+RssFile           120396      120548
+
+### LanceDB on every processor, one process, warm
+$ env LANCE_STAY=21 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+@ entry 76182323064194
+@ imported 76182957582840
+@ opened 76182961483926
+@ first 76185051130143
+@ last 76227121267166
+= VmHWM 6160972
+= RssAnon 861268
+= RssFile 120244
+searches after the first: 20
+milliseconds      median      95th percentile
+a search          2103.162       2120.864
+
+### LanceDB on every processor, rounds of such a process, warm
+$ env LANCE_STAY=21 build/bench-run 7 - - /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 7, processor: -, file cache: as two rounds before left it
+milliseconds      median      95th percentile
+wall              45240.777   45487.587
+  to entry        11.702      12.432
+  to imported     650.942     670.579
+  to opened       3.953       4.631
+  to first        2105.911    2126.609
+  to last         42359.143   42610.996
+  to the end      102.712     117.326
+cpu               147876.553  148770.257
+kibibytes         median      largest
+peak resident     6138688     6295844
+VmHWM             6138688     6295844
+RssAnon           849876      941000
+RssFile           120264      120380
+
+### LanceDB on every processor, rounds of such a process, cold
+$ env LANCE_STAY=21 build/bench-run 7 - build/bench/l1000000 /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+command: /home/cristiano/.cache/aildb-bench/venv/bin/python bench/lance_query.py build/bench/l1000000 build/bench/q1000000.bin 10
+rounds: 7, processor: -, file cache: before each round the 3077599569 bytes of 4 files at build/bench/l1000000 were put out of it; pages of them still in memory then, at most: 0
+milliseconds      median      95th percentile
+wall              46384.191   46504.668
+  to entry        9.431       12.569
+  to imported     619.928     636.779
+  to opened       14.733      15.540
+  to first        3143.944    3164.780
+  to last         42512.603   42602.009
+  to the end      101.619     108.047
+cpu               145925.131  147254.315
+kibibytes         median      largest
+peak resident     6205652     6261968
+VmHWM             6205652     6261968
+RssAnon           865940      932576
+RssFile           120292      120368
