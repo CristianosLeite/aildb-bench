@@ -8,7 +8,7 @@ The measurements of aildb (https://github.com/CristianosLeite/aildb), a vector s
 
 ## State
 
-The repository was made on 2026-11-22 by the agent, on the user's machine, and is not published: it has no remote, and one is the user's to create. The figures of the first measurements, of 2026-11-21 at the revision `4a21a3e` of aildb, are in `docs/performance.md` of aildb, made by the programs as they were there.
+The repository was made on 2026-11-22 by the agent, on the user's machine, and published the same day at the user's word, at https://github.com/CristianosLeite/aildb-bench, public, with `main` pushed as it was. From then on work reaches `main` through a pull request, as in aildb. The figures of the first measurements, of 2026-11-21 at the revision `4a21a3e` of aildb, are in `docs/performance.md` of aildb, made by the programs as they were there.
 
 ## How it is built
 
