@@ -1,0 +1,28 @@
+# the number of a line of /proc/self/status, as bench/hook.aiw reads it
+# for the lines "=" of a search: a number, a 0, which is a number; and
+# no number for a line that is not there, a name that only starts like
+# the one asked for, a line without a digit and one at the very end
+# that is cut, so that what was not measured is not said to be 0.
+use "lib/std/io.aiw"
+use "bench/hook.aiw"
+data status "Name:\taildb\nVmHWM:\t   30252 kB\nRssAnon:\t      64 kB\nRssFile:\t       0 kB\nRssShmem:\t      12 kB\nEmpty:\t kB\nLast:\t"
+fn show p n
+	len status as m
+	call hooknumber status m p n as v ok
+	call print p n
+	if ok
+		call print " "
+		call putn v
+		call print "\n"
+	else
+		call print " no number\n"
+	end
+end
+call show "VmHWM:"
+call show "RssAnon:"
+call show "RssFile:"
+call show "RssShmem:"
+call show "RssSh:"
+call show "VmRSS:"
+call show "Empty:"
+call show "Last:"

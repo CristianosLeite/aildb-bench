@@ -64,9 +64,11 @@ fn hooksay hooka hookp hookn hookv
 	sys write 2 hookline hookd-hookline
 end
 
-# say the number after the hookn bytes at hookp, the name of a line with
-# its colon, among the hookm bytes of /proc/self/status at hookb
-fn hookfield hookb hookm hookp hookn
+# The number of the line whose name, with its colon, is the hookn bytes
+# at hookp, among the hookm bytes of /proc/self/status at hookb: the
+# number and 1, or 0 and 0 if there is no such line or no digit follows
+# the name, so that a measurement that is not there is not read as 0.
+fn hooknumber hookb hookm hookp hookn
 	hooki=0
 	while hooki+hookn<hookm
 		hookj=0
@@ -78,19 +80,22 @@ fn hookfield hookb hookm hookp hookn
 		end
 		hooki+=hookn
 		hookv=0
+		hookd=0
 		label more
-		loadb hookb+hooki as hookx
-		hooki+=1
-		if (hookx==32)|(hookx==9)
-			jmp more
+		if hooki<hookm
+			loadb hookb+hooki as hookx
+			hooki+=1
+			if ((hookx==32)|(hookx==9))&(hookd==0)
+				jmp more
+			end
+			hookx-=48
+			if hookx<10
+				hookv=hookv*10+hookx
+				hookd=1
+				jmp more
+			end
 		end
-		hookx-=48
-		if hookx<10
-			hookv=hookv*10+hookx
-			jmp more
-		end
-		call hooksay 61 hookp hookn-1 hookv
-		ret 0
+		ret hookv hookd
 		label next
 		# on to the start of the next line
 		label skip
@@ -99,6 +104,15 @@ fn hookfield hookb hookm hookp hookn
 		if (hookx!=10)&(hooki<hookm)
 			jmp skip
 		end
+	end
+	ret 0 0
+end
+
+# say that number, if there is one, as a line "= NAME N"
+fn hookfield hookb hookm hookp hookn
+	call hooknumber hookb hookm hookp hookn as hookv hookd
+	if hookd
+		call hooksay 61 hookp hookn-1 hookv
 	end
 end
 

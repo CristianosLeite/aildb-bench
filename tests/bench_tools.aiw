@@ -83,8 +83,10 @@ while n
 		call putn v>=prev
 		prev=v
 	else
-		call print "  a number above 0: "
-		call putn (v>0)&ok3
+		# a number that is there: a process may have no page of a
+		# file resident, so 0 is one
+		call print "  a number: "
+		call putn ok3
 	end
 	call print "\n"
 	p+=l+ok

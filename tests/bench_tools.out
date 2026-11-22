@@ -28,9 +28,9 @@ aildb-times: status 0, stdout as that of aildb: 1
 @ opened  a time not before the last: 1
 @ searched  a time not before the last: 1
 @ printed  a time not before the last: 1
-= VmHWM  a number above 0: 1
-= RssAnon  a number above 0: 1
-= RssFile  a number above 0: 1
+= VmHWM  a number: 1
+= RssAnon  a number: 1
+= RssFile  a number: 1
 bench-scan gives the ordinals and bits of search, mapped, populated, read: 1 1 1
 $ bench-scan s.idx q.bin
 --- stdout
