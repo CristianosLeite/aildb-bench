@@ -1,0 +1,98 @@
+# bench-stay, a process that keeps a snapshot open: its first search
+# prints the results that the command search prints, with and without
+# the filters; its lines on stderr are the four moments in order and,
+# for more than one search, how many came after the first; and the
+# generator gives every fourth record another language.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "lib/std/proc.aiw"
+use "aildb:src/lib/text.aiw"
+use "aildb:tests/lib/cmd.aiw"
+buf so 24
+buf se 24
+buf keep 24
+fn run p n
+	call cmdargs p n as av
+	call cmdrun av -1 so se as st
+	ret st
+end
+# 1 if what the command p n printed, after its first line, is what the
+# command q m printed
+fn same p n q m
+	call run p n as st
+	load so as a
+	load so+8 as an
+	call textline a an as l ok
+	call bycut keep 0
+	call byadd keep a+l+ok an-l-ok
+	call run q m as st2
+	load so as a
+	load so+8 as an
+	load keep as b
+	load keep+8 as bn
+	call texteq a an b bn as r
+	ret r&(st==0)&(st2==0)&(bn>0)
+end
+call run "bench-gen 500 64 v.bin m.tsv q.bin" as st
+call run "aildb build -o s.idx -v v.bin -m m.tsv -d 64 -i random" as st
+call print "the lines of the metadata with the language markdown, of 500: "
+call bycut keep 0
+call fileread "m.tsv" keep
+load keep as p
+load keep+8 as n
+c=0
+while n
+	call textline p n as l ok
+	call texteq p+l-9 9 "\tmarkdown" as md
+	c+=md
+	p+=l+ok
+	n-=l+ok
+end
+call putn c
+call print "\nthe results of search, without a filter: "
+call same "aildb search s.idx -k 10 -q q.bin" "bench-stay s.idx q.bin 10 1" as r
+call putn r
+call print "\nwith a prefix: "
+call same "aildb search s.idx -k 10 -q q.bin -p src/f1" "bench-stay s.idx q.bin 10 3 src/f1" as r
+call putn r
+call print "\nwith a language: "
+call same "aildb search s.idx -k 10 -q q.bin -l markdown" "bench-stay s.idx q.bin 10 3 - markdown" as r
+call putn r
+call print "\nwith both: "
+call same "aildb search s.idx -k 10 -q q.bin -p src/f1 -l markdown" "bench-stay s.idx q.bin 10 3 src/f1 markdown" as r
+call putn r
+call print "\n\n# the lines on stderr of 5 searches: what stands before a number\n"
+call run "bench-stay s.idx q.bin 10 5" as st
+load se as p
+load se+8 as n
+prev=0
+order=1
+while n
+	call textline p n as l ok
+	loadb p as kind
+	if kind==64
+		call textfind p+2 l-2 32 as nl ok2
+		call print p nl+2
+		call print "\n"
+		call textnum p+3+nl l-3-nl as v ok3
+		if v<prev
+			order=0
+		end
+		prev=v
+	else
+		loadb p as c
+		if c==115
+			call print p l
+			call print "\n"
+		end
+	end
+	p+=l+ok
+	n-=l+ok
+end
+call print "the moments are in order: "
+call putn order
+call print "\n\n"
+call cmdshow "bench-stay s.idx q.bin 0 5"
+call cmdshow "bench-stay s.idx"
+call cmdshow "bench-stay absent.idx q.bin 10 1"

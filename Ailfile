@@ -7,8 +7,10 @@ ail 0.1.0
 # the engine as it is shipped, and with hooks that say its times
 bin aildb src/aildb.aiw
 bin aildb-times src/times.aiw
-# the harness, the generator of the inputs, and the scan read in three ways
+# the harness, the generator of the inputs, the scan read in three
+# ways, and the searches of a process that keeps a snapshot open
 bin bench-run bench/run.aiw
 bin bench-gen bench/gen.aiw
 bin bench-scan bench/scan.aiw
+bin bench-stay bench/stay.aiw
 dep aildb 0.1.0 https://github.com/CristianosLeite/aildb.git

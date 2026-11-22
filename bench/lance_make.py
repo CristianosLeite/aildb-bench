@@ -5,7 +5,7 @@
 
 The table "records" in the database at DIRECTORY, which is made anew,
 gets a row for each record, in the order of the snapshot: id (the
-ordinal), path, start_line, end_line and vector, the binary32 that the
+ordinal), path, language, start_line, end_line and vector, the binary32 that the
 snapshot stores, bit for bit. No index is made, so a search of the table
 compares the query with every row. docs/format.md is the layout read
 here; the snapshot is taken to be valid ("aildb check").
@@ -36,10 +36,12 @@ def main(argv):
         f.seek(vectors)
         flat = numpy.frombuffer(f.read(4 * dim * count), "<f4")
     paths = [text[o : o + n].decode() for o, n in recs[:, :2].tolist()]
+    languages = [text[o : o + n].decode() for o, n in recs[:, 2:4].tolist()]
     table = pyarrow.table(
         {
             "id": pyarrow.array(range(count), pyarrow.uint32()),
             "path": pyarrow.array(paths, pyarrow.string()),
+            "language": pyarrow.array(languages, pyarrow.string()),
             "start_line": pyarrow.array(recs[:, 4], pyarrow.uint32()),
             "end_line": pyarrow.array(recs[:, 5], pyarrow.uint32()),
             "vector": pyarrow.FixedSizeListArray.from_arrays(pyarrow.array(flat), dim),

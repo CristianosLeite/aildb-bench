@@ -13,7 +13,7 @@ x86-64 Linux and AIL, whose command `ail` builds and tests a package (`make AIL=
 ## Commands
 
 ```
-make                         # build/: aildb, aildb-times, bench-run, bench-gen, bench-scan
+make                         # build/: aildb, aildb-times, bench-run, bench-gen, bench-scan, bench-stay
 make test                    # the tests of the harness and of the programs, and the indentation
 make bench PY=/path/to/python   # the measurements; the report is build/bench/report.txt
 ```
@@ -25,8 +25,9 @@ make bench PY=/path/to/python   # the measurements; the report is build/bench/re
 | `build/bench-run` | `bench/run.aiw`, `bench/stat.aiw` | the harness: rounds of a command, the median and the 95th percentile of the wall and CPU time and of the peak resident memory |
 | `build/bench-gen` | `bench/gen.aiw` | the inputs, the same bytes every run |
 | `build/bench-scan` | `bench/scan.aiw` | the scan of a snapshot read in three ways: a mapping, a mapping that is populated, and reads |
+| `build/bench-stay` | `bench/stay.aiw` | a process that opens a snapshot once and searches it again and again, with the library of aildb |
 
-`bench/bench.sh` is what `make bench` runs, and `bench/lance_make.py`, `lance_query.py` and `lance_same.py` make the table of LanceDB from a snapshot, search it and compare the answers of the two engines.
+`bench/bench.sh` is what `make bench` runs, and `bench/lance_make.py`, `lance_query.py` and `lance_same.py` make the table of LanceDB from a snapshot, search it, once or again and again in one process (`LANCE_STAY`), with the filters of `search`, and compare the answers of the two engines.
 
 To measure another version of aildb, `ail update aildb` moves the dependency to its latest tag, and `ail add --path ../aildb` names a checkout in its place.
 

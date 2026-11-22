@@ -9,7 +9,8 @@
 # a fixed start (xorshift64*), so the files are the same bytes on every
 # run. The vectors are not of the norm 1, which build sees to. A record
 # is forty lines of a file of fifty records: src/f0.aiw 1 to 40, 41 to
-# 80 and so on.
+# 80 and so on. Its language is "ail", and "markdown" for every fourth
+# record, the ordinals 3, 7 and so on.
 use "lib/std/io.aiw"
 use "lib/std/bytes.aiw"
 use "lib/std/file.aiw"
@@ -87,7 +88,12 @@ while i<count
 	call byaddn out i%50*40+1
 	call byaddb out 9
 	call byaddn out i%50*40+40
-	call byadd out "\tail\n" as ok
+	# one record of four is of another language, for a filter to take
+	if i%4==3
+		call byadd out "\tmarkdown\n" as ok
+	else
+		call byadd out "\tail\n" as ok
+	end
 	ifz ok
 		call die "gen: out of memory\n"
 	end

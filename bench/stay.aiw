@@ -1,0 +1,163 @@
+# stay -- queries of one process that keeps a snapshot open.
+#
+#   stay SNAPSHOT QUERY LIMIT ROUNDS [PREFIX [LANGUAGE]]
+#
+# The snapshot is opened once, with the library of aildb that the
+# command search is made of (aildb:src/lib/search.aiw), the query of raw
+# binary32 in the file QUERY is read and made a vector of the norm 1,
+# and the search for the LIMIT best records is then run ROUNDS times,
+# each with its results read back. PREFIX and LANGUAGE are the filters
+# of search -p and -l; "-" is none.
+#
+# stdout gets the results of the first search, a line each as search
+# prints a result. stderr gets the lines that bench/run.aiw reads, "@
+# NAME N" with the monotonic clock in nanoseconds at a moment:
+#
+#     entry    the first line of this program
+#     opened   the snapshot is mapped and validated and the query read
+#     first    the first search is done, which is the one that reads
+#              the vectors from the drive if they were not in memory
+#     last     the last search is done
+#
+# and after them, if ROUNDS is more than 1, the median and the 95th
+# percentile of the time of a search after the first, in milliseconds.
+# The status is 0, 2 for wrong usage and 1 for a snapshot or a query
+# that cannot be read or searched.
+use "lib/std/io.aiw"
+use "lib/std/bytes.aiw"
+use "lib/std/file.aiw"
+use "lib/std/proc.aiw"
+use "aildb:src/lib/text.aiw"
+use "aildb:src/lib/fmt.aiw"
+use "aildb:src/lib/search.aiw"
+use "bench/stat.aiw"
+buf snap 104
+buf sel 24
+buf qb 24
+buf out 24
+buf line 24
+
+# write "@ ", the n bytes at p, the number v and a line feed to stderr
+fn mark p n v
+	call bycut line 0
+	call byadd line "@ "
+	call byadd line p n
+	call byaddb line 32
+	call byaddn line v
+	call byaddb line 10
+	load line as q
+	load line+8 as m
+	call eprint q m
+end
+
+# the argument i as a filter: its address and length, or 0 0 for "-"
+# and for an argument that is not there
+fn filter i
+	call argv i as p n
+	call texteq p n "-" as none
+	if (p==0)|none
+		ret 0 0
+	end
+	ret p n
+end
+
+call procnow as t0
+call argc as c
+if (c<5)|(c>7)
+	call eprint "usage: stay SNAPSHOT QUERY LIMIT ROUNDS [PREFIX [LANGUAGE]]\n"
+	sys exit_group 2
+end
+call argv 3 as p n
+call textnum p n as k ok
+call argv 4 as p n
+call textnum p n as rounds ok2
+if (ok==0)|(ok2==0)|(k==0)|(rounds==0)|(rounds>10000000)
+	call eprint "stay: LIMIT and ROUNDS are numbers above 0\n"
+	sys exit_group 2
+end
+call filter 5 as pp pn
+call filter 6 as lp ln
+call argv 1 as p n
+call snapopen snap p n as r
+if r
+	call die "stay: the snapshot cannot be opened\n"
+end
+call searchdim snap as dim
+call argv 2 as p n
+call fileread p n qb as r
+load qb as qp
+load qb+8 as qn
+ifslt r 0
+	call die "stay: the query cannot be read\n"
+end
+if qn!=dim*4
+	call die "stay: the query is not of the dimension of the snapshot\n"
+end
+alloc dim*8 as q
+alloc rounds*8 as times
+call searchquery snap qp q as r
+if r
+	call die "stay: the query is not a vector that can be searched for\n"
+end
+call procnow as t1
+tf=t1
+tb=t1
+i=0
+while i<rounds
+	call procnow as ta
+	call searchrun snap sel q k pp pn lp ln as r o
+	if r
+		call die "stay: the search failed\n"
+	end
+	call searchcount sel as count
+	j=0
+	while j<count
+		call searchhit snap sel j as s hp hn first last ok
+		ifz i
+			call byadd out "{\"rank\":"
+			call byaddn out j+1
+			call byadd out ",\"score\":"
+			call fmtfix out s 6
+			call byadd out ",\"score_bits\":\""
+			call fmthex out s
+			call byadd out "\",\"path\":"
+			call fmtjson out hp hn
+			call byadd out ",\"start_line\":"
+			call byaddn out first
+			call byadd out ",\"end_line\":"
+			call byaddn out last
+			call byadd out "}\n"
+		end
+		j+=1
+	end
+	call topkfree sel
+	call procnow as tb
+	store times+i*8 tb-ta
+	ifz i
+		tf=tb
+	end
+	i+=1
+end
+load out as p
+load out+8 as n
+call print p n
+call mark "entry" t0
+call mark "opened" t1
+call mark "first" tf
+call mark "last" tb
+if rounds>1
+	call statsort times+8 rounds-1
+	call bycut line 0
+	call byadd line "searches after the first: "
+	call byaddn line rounds-1
+	call byadd line "\nmilliseconds      median      95th percentile\na search          "
+	call statmedian times+8 rounds-1 as x
+	call statms line x
+	call byadd line "       "
+	call statp95 times+8 rounds-1 as x
+	call statms line x
+	call byaddb line 10
+	load line as p
+	load line+8 as n
+	call eprint p n
+end

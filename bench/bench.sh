@@ -1,8 +1,10 @@
 #!/bin/sh
 # usage: bench/bench.sh [PYTHON]
-# The measurements of docs/performance.md: top-10 at 10,000 and 100,000
-# vectors of 768 dimensions, aildb and the Python binding of LanceDB on
-# the same stored values and the same query. It is run by "make bench",
+# The measurements of docs/performance.md: top-10 at 10,000, 100,000 and
+# 1,000,000 vectors of 768 dimensions, aildb and the Python binding of
+# LanceDB on the same stored values and the same query: a process a
+# query, with and without a filter, and a process that keeps the
+# snapshot or the table open and searches it again and again. It is run by "make bench",
 # which builds the programs first; PYTHON is an interpreter that has the
 # package lancedb (default python3). Everything is written below
 # build/bench/, and the report, which is also printed, to
@@ -18,7 +20,9 @@
 # measured processes are bound to (2), WARM and COLD the rounds with the
 # file cache as it is and with the files put out of it (101 and 31), and
 # LWARM and LCOLD the same for LanceDB, whose rounds take longer (31 and
-# 15), SIZES the numbers of records ("10000 100000").
+# 15), SIZES the numbers of records ("10000 100000 1000000"), STAY the
+# searches of a process that stays (21) and SROUNDS the rounds of such a
+# process, warm and cold (7).
 set -eu
 cd "$(dirname "$0")/.."
 py=${1:-python3}
@@ -27,7 +31,9 @@ warm=${WARM:-101}
 cold=${COLD:-31}
 lwarm=${LWARM:-31}
 lcold=${LCOLD:-15}
-sizes=${SIZES:-"10000 100000"}
+sizes=${SIZES:-"10000 100000 1000000"}
+stay=${STAY:-21}
+srounds=${SROUNDS:-7}
 b=build
 d=build/bench
 mkdir -p $d
@@ -47,6 +53,13 @@ go() {
     shift
     echo "\$ $*"
     "$@"
+}
+# the same for a command whose stdout is results, which are not shown
+quiet() {
+    echo; echo "### $1"
+    shift
+    echo "\$ $*"
+    "$@" > /dev/null
 }
 
 report() {
@@ -89,6 +102,43 @@ report() {
             go "bench-scan $how, warm" $run $warm $cpu - $b/bench-scan $d/s$n.idx $d/q$n.bin $how
             go "bench-scan $how, cold" $run $cold $cpu $d/s$n.idx $b/bench-scan $d/s$n.idx $d/q$n.bin $how
         done
+        # A filter: the prefix takes the files f12, f120 to f129 and so
+        # on, about one record of eighteen, and the language one of four.
+        # The answers are compared first, as without a filter.
+        for f in "src/f12 -" "- markdown"; do
+            set -- $f
+            opts=
+            [ "$1" = - ] || opts="-p $1"
+            [ "$2" = - ] || opts="$opts -l $2"
+            echo; echo "## $n records, the filter $opts"
+            $b/aildb search $d/s$n.idx -k 10 -q $d/q$n.bin $opts > $d/af$n.out
+            $py bench/lance_query.py $d/l$n $d/q$n.bin 10 $1 $2 > $d/lf$n.out 2> /dev/null
+            same=$($py bench/lance_same.py $d/af$n.out $d/lf$n.out) || { echo "aildb and LanceDB: $same"; exit 1; }
+            echo "aildb and LanceDB: $same"
+            go "aildb, warm" $run $warm $cpu - $b/aildb $aildb $opts
+            go "aildb, cold" $run $cold $cpu $d/s$n.idx $b/aildb $aildb $opts
+            go "LanceDB on one processor, warm" $run $lwarm $cpu - $py $lance $1 $2
+            go "LanceDB on one processor, cold" $run $lcold $cpu $d/l$n $py $lance $1 $2
+            go "LanceDB on every processor, warm" $run $lwarm - - $py $lance $1 $2
+        done
+        # A process that stays: the snapshot or the table is opened once
+        # and searched $stay times. Run alone, bound to the processor, it
+        # says the median of a search after the first; under the harness
+        # its parts are the time to "opened", to the first search and to
+        # the last.
+        echo; echo "## $n records, a process that stays, $stay searches"
+        $b/bench-stay $d/s$n.idx $d/q$n.bin 10 1 2> /dev/null | cmp -s - $d/a$n.tail ||
+            { tail -n +2 $d/a$n.out > $d/a$n.tail; $b/bench-stay $d/s$n.idx $d/q$n.bin 10 1 2> /dev/null | cmp - $d/a$n.tail; }
+        echo "bench-stay and aildb search: the same results"
+        quiet "aildb, one process, warm" taskset -c $cpu $b/bench-stay $d/s$n.idx $d/q$n.bin 10 $stay
+        go "aildb, rounds of such a process, warm" $run $srounds $cpu - $b/bench-stay $d/s$n.idx $d/q$n.bin 10 $stay
+        go "aildb, rounds of such a process, cold" $run $srounds $cpu $d/s$n.idx $b/bench-stay $d/s$n.idx $d/q$n.bin 10 $stay
+        quiet "LanceDB on one processor, one process, warm" env LANCE_STAY=$stay taskset -c $cpu $py $lance
+        go "LanceDB on one processor, rounds of such a process, warm" env LANCE_STAY=$stay $run $srounds $cpu - $py $lance
+        go "LanceDB on one processor, rounds of such a process, cold" env LANCE_STAY=$stay $run $srounds $cpu $d/l$n $py $lance
+        quiet "LanceDB on every processor, one process, warm" env LANCE_STAY=$stay $py $lance
+        go "LanceDB on every processor, rounds of such a process, warm" env LANCE_STAY=$stay $run $srounds - - $py $lance
+        go "LanceDB on every processor, rounds of such a process, cold" env LANCE_STAY=$stay $run $srounds - $d/l$n $py $lance
     done
 }
 # the status of the measurements, not that of tee: a step that fails

@@ -1,0 +1,29 @@
+the lines of the metadata with the language markdown, of 500: 125
+the results of search, without a filter: 1
+with a prefix: 1
+with a language: 1
+with both: 1
+
+# the lines on stderr of 5 searches: what stands before a number
+@ entry
+@ opened
+@ first
+@ last
+searches after the first: 4
+the moments are in order: 1
+
+$ bench-stay s.idx q.bin 0 5
+--- stdout
+--- stderr
+stay: LIMIT and ROUNDS are numbers above 0
+--- status 2
+$ bench-stay s.idx
+--- stdout
+--- stderr
+usage: stay SNAPSHOT QUERY LIMIT ROUNDS [PREFIX [LANGUAGE]]
+--- status 2
+$ bench-stay absent.idx q.bin 10 1
+--- stdout
+--- stderr
+stay: the snapshot cannot be opened
+--- status 1
