@@ -10,6 +10,8 @@ The measurements of aildb (https://github.com/CristianosLeite/aildb), a vector s
 
 The repository was made on 2026-11-22 by the agent, on the user's machine, and published the same day at the user's word, at https://github.com/CristianosLeite/aildb-bench, public, with `main` pushed as it was. From then on work reaches `main` through a pull request, as in aildb. The figures of the first measurements, of 2026-11-21 at the revision `4a21a3e` of aildb, are in `docs/performance.md` of aildb, made by the programs as they were there.
 
+The version is 0.1.1 (user, 2026-11-22: every package of the family to 0.1.1, with AIL): `Ailfile` says it, asks for AIL 0.1.1 and names aildb 0.1.1, and the tag `v0.1.1` is on the merge of the pull request that made it. The figures of `docs/performance.md` are of aildb 0.1.0; a run of 0.1.1 is still to be made.
+
 ## How it is built
 
 - It is a package of AIL: `Ailfile` names what is built and the dependency `aildb`, by its address and a version, and `Ailfile.lock` has the revision of that version. `ail build` fetches it into `deps/`, which git ignores.

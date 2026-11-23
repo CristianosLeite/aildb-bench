@@ -57,6 +57,10 @@ Besides a process a query without a filter, which the first figures were:
 
 ## Runs
 
+The package is 0.1.1 since 2026-11-22 and names aildb 0.1.1, for AIL 0.1.1. No run was
+made with them yet: the run below is of aildb 0.1.0, and its figures are those of that
+version.
+
 ### 2026-11-22, aildb 0.1.0
 
 `make AIL=../ail-packages/build/ail bench PY=~/.cache/aildb-bench/venv/bin/python`
