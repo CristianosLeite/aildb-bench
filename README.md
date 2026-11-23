@@ -2,7 +2,7 @@
 
 The measurements of [aildb](https://github.com/CristianosLeite/aildb), a local, file-based vector search engine written in [AIL](https://github.com/CristianosLeite/ail): how long a query takes and how much memory it needs, against the Python binding of [LanceDB](https://lancedb.com) on the same stored vectors and the same query. The programs were in `bench/` of aildb until its version 0.1.0 and are here since 2026-11-22, as the benchmarks of AIL are in ail-bench.
 
-The engine that is measured is the package aildb at the version of `Ailfile`, whose revision is in `Ailfile.lock`; nothing of it is copied here. `build/aildb` is compiled from its sources with the hooks it is shipped with, and for `v0.1.0` it is byte for byte the executable of the release.
+The engine that is measured is the package aildb at the version of `Ailfile`, whose revision is in `Ailfile.lock`; nothing of it is copied here. `build/aildb` is compiled from its sources with the hooks it is shipped with, and for `v0.1.0`, compiled by AIL 0.1.0, it was byte for byte the executable of the archive that `make dist` of aildb makes. Since 2026-11-22 the package is 0.1.1 and measures aildb 0.1.1 with AIL 0.1.1.
 
 [docs/performance.md](docs/performance.md) says how a query is measured and has the figures of each run, with the revisions and the commands that made them.
 
